@@ -466,7 +466,7 @@ async def dashboard(interaction: discord.Interaction):
 # ---------- SESSIONS ----------
 SESSION_JOIN_CODE = "msrpvconly"
 SESSION_SERVER_NAME = "Minnesota State Roleplay | VC Only"
-INGAME_SERVER_URL = "https://www.roblox.com/games/YOUR_PLACE_ID/YOUR_GAME_NAME"  # TODO: replace with your actual ERLC/Roblox game link
+INGAME_SERVER_URL = "https://www.roblox.com/games/2534724415/Emergency-Response-Liberty-County"
 
 def has_session_host_role():
     async def predicate(interaction: discord.Interaction) -> bool:
