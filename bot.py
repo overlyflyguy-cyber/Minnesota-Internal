@@ -39,14 +39,14 @@ DISCORD_RULES_INTRO = (
 )
 
 DISCORD_RULES_ITEMS = [
-    "1 **Advertising**\n-# DM advertising is not allowed here and will result in moderation if you are caught doing it, along with advertising to our members.",
-    "2 **English**\n-# Our server is a English only server, so please refrain from using any other languages. Abiding by this rule will result in a more streamlined experience.",
-    "3 **NSFW**\n-# Any NSFW topics are prohibited in this server, all content in here must abide by this rule. Or you will be banned.",
-    "4 **TOS**\n-# All content and topics in this server must abide by both the [Discord TOS](https://discord.com/terms) and [Discord guidelines](https://discord.com/guidelines), failure to do so will result in a ban.",
-    "5 **Moderation Guidelines**\n-# We do not moderate any direct messages or content outside the server. This is unless it involves or impacts Minnesota State Roleplay.",
-    "6 **Display Names**\n-# All display names must be your Roblox user, unless you are Internal Affairs+.",
-    "7 **Respect and Drama**\n-# Any disrespect will result in moderation from our staff team. Along with that please try and keep drama to a minimum, if it escalates, punishments will be issued.",
-    "8 **Trolling**\n-# If you are trolling you will be moderated. We are here to give the community a good roleplay experience. Any trolls will be dealt with."
+    "`1` **Advertising**\n-# DM advertising is not allowed here and will result in moderation if you are caught doing it, along with advertising to our members.",
+    "`2` **English**\n-# Our server is a English only server, so please refrain from using any other languages. Abiding by this rule will result in a more streamlined experience.",
+    "`3` **NSFW**\n-# Any NSFW topics are prohibited in this server, all content in here must abide by this rule. Or you will be banned.",
+    "`4` **TOS**\n-# All content and topics in this server must abide by both the [Discord TOS](https://discord.com/terms) and [Discord guidelines](https://discord.com/guidelines), failure to do so will result in a ban.",
+    "`5` **Moderation Guidelines**\n-# We do not moderate any direct messages or content outside the server. This is unless it involves or impacts Minnesota State Roleplay.",
+    "`6` **Display Names**\n-# All display names must be your Roblox user, unless you are Internal Affairs+.",
+    "`7` **Respect and Drama**\n-# Any disrespect will result in moderation from our staff team. Along with that please try and keep drama to a minimum, if it escalates, punishments will be issued.",
+    "`8` **Trolling**\n-# If you are trolling you will be moderated. We are here to give the community a good roleplay experience. Any trolls will be dealt with."
 ]
 
 INGAME_RULES_INTRO = (
@@ -56,17 +56,17 @@ INGAME_RULES_INTRO = (
 )
 
 INGAME_RULES_ITEMS = [
-    "1 **Random Death Match**\n-# You may not kill another player if not in a roleplay with them and if you don't have a valid reason.",
-    "2 **Vehicle Deathmatch**\n-# Damaging others vehicles or using your vehicle to damage/harm others without a valid in-roleplay reason will result in moderation.",
-    "3 **New Life Rule**\n-# After respawning, you cannot remember anything from that past life. Additionally if you were revived at a hospital, you must forget everything 5 minutes prior to your injuries.",
-    "4 **Fail Roleplay**\n-# Any acts that would be impossible to complete realistically in real life is breaking this rule. For example, jumping out of a car at 50+ mph and walking off fine.",
-    "5 **Safe Zones**\n-# You cannot commit any crimes or harm anyone inside of a safe zone, if you use a safe zone to get out of an RP, you will be moderated. The following are all safe zones, both Civ spawns, both the fire departments and police/sheriff stations.",
-    "6 **GTA Driving**\n-# If you are going above 120+ miles per hour, while not in a pursuit or you have a priority timer, you are GTA Driving. You also must drive realistically and not break laws unnecessarily.",
-    "7 **Avatars**\n-# You must have a realistic avatar, failure to do so will result in moderation from our Staff Team.",
-    "8 **Priority**\n-# When someone has priority timer, for example for a robbery or hostage scene. You cannot break any major laws that would result in increased police presence, for example you cannot run when there is an active priority.",
-    "9 **Meta Gaming**\n-# You cannot meta game, which is using information not obtained in-roleplay, in roleplay. For example an officer says \"Out of RP you cannot hear this\". Then you go ahead and use that info to your advantage, you are meta gaming and will be moderated.",
-    "10 **No Intent to Roleplay**\n-# You must actively have a roleplay purpose in what you do. You cannot go around and just drive then drive off when an officer wants to stop you. You must have a valid reason for you to flee.",
-    "11 **Leaving to Avoid Punishment**\n-# You cannot leave in-game or in the discord when in a staff scene or to avoid being punished by the staff team. This will result in a ban.",
+    "`1` **Random Death Match**\n-# You may not kill another player if not in a roleplay with them and if you don't have a valid reason.",
+    "`2` **Vehicle Deathmatch**\n-# Damaging others vehicles or using your vehicle to damage/harm others without a valid in-roleplay reason will result in moderation.",
+    "`3` **New Life Rule**\n-# After respawning, you cannot remember anything from that past life. Additionally if you were revived at a hospital, you must forget everything 5 minutes prior to your injuries.",
+    "`4` **Fail Roleplay**\n-# Any acts that would be impossible to complete realistically in real life is breaking this rule. For example, jumping out of a car at 50+ mph and walking off fine.",
+    "`5` **Safe Zones**\n-# You cannot commit any crimes or harm anyone inside of a safe zone, if you use a safe zone to get out of an RP, you will be moderated. The following are all safe zones, both Civ spawns, both the fire departments and police/sheriff stations.",
+    "`6` **GTA Driving**\n-# If you are going above 120+ miles per hour, while not in a pursuit or you have a priority timer, you are GTA Driving. You also must drive realistically and not break laws unnecessarily.",
+    "`7` **Avatars**\n-# You must have a realistic avatar, failure to do so will result in moderation from our Staff Team.",
+    "`8` **Priority**\n-# When someone has priority timer, for example for a robbery or hostage scene. You cannot break any major laws that would result in increased police presence, for example you cannot run when there is an active priority.",
+    "`9` **Meta Gaming**\n-# You cannot meta game, which is using information not obtained in-roleplay, in roleplay. For example an officer says \"Out of RP you cannot hear this\". Then you go ahead and use that info to your advantage, you are meta gaming and will be moderated.",
+    "`10` **No Intent to Roleplay**\n-# You must actively have a roleplay purpose in what you do. You cannot go around and just drive then drive off when an officer wants to stop you. You must have a valid reason for you to flee.",
+    "`11` **Leaving to Avoid Punishment**\n-# You cannot leave in-game or in the discord when in a staff scene or to avoid being punished by the staff team. This will result in a ban.",
     "**Banned Roleplays**\n> - ICE Roleplay\n> - Bomb Roleplay\n> - Terror/terrorist Roleplay\n> - Drug Roleplay\n> - Any roleplay against Roblox TOS",
     "**Booster Weapons**\n> - PPSH 41\n> - Remington MSR\n> - Remington 870\n> - Desert Eagle",
     "**Booster Vehicles**\n> - Truckatron (Cybertruck)\n> - Kovac Heladera 2023\n> - Strugatti Ettore 2020\n> - Falcon Heritage Track 2022\n> - Falcon Heritage Track 2021"
