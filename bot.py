@@ -465,6 +465,7 @@ async def dashboard(interaction: discord.Interaction):
 # ---------- SESSIONS ----------
 SESSION_JOIN_CODE = "msrpvconly"
 SESSION_SERVER_NAME = "Minnesota State Roleplay | VC Only"
+INGAME_SERVER_URL = "https://www.roblox.com/games/YOUR_PLACE_ID/YOUR_GAME_NAME"  # TODO: replace with your actual ERLC/Roblox game link
 
 def has_session_host_role():
     async def predicate(interaction: discord.Interaction) -> bool:
@@ -526,8 +527,16 @@ def build_session_stats_text(current, maximum, queue, online_staff, session_acti
         f"-# Session has been up since {timer_str}."
     )
 
+def build_session_status_line(session_active: bool):
+    dot = "🟢" if session_active else "🔴"
+    status_word = "Online" if session_active else "Offline"
+    return (
+        f"**Status** {dot} `{status_word}`\n"
+        f"-# [Click here to join the in-game server]({INGAME_SERVER_URL})"
+    )
+
 class SessionPanelLayout(discord.ui.LayoutView):
-    def __init__(self, stats_text):
+    def __init__(self, stats_text, session_active=False):
         super().__init__(timeout=None)
 
         container = discord.ui.Container()
@@ -560,6 +569,10 @@ class SessionPanelLayout(discord.ui.LayoutView):
             discord.MediaGalleryItem(FOOTER_IMAGE_URL)
         ))
 
+        container.add_item(discord.ui.TextDisplay(
+            build_session_status_line(session_active)
+        ))
+
         self.add_item(container)
 
 async def get_current_session_stats_text(guild: discord.Guild):
@@ -572,7 +585,8 @@ async def get_current_session_stats_text(guild: discord.Guild):
     session_active = bool(state["active"]) if state else False
     start_time = state["start_time"] if state else None
 
-    return build_session_stats_text(current, maximum, queue, online_staff, session_active, start_time)
+    stats_text = build_session_stats_text(current, maximum, queue, online_staff, session_active, start_time)
+    return stats_text, session_active
 
 @tasks.loop(seconds=60)
 async def refresh_session_panel():
@@ -593,9 +607,9 @@ async def refresh_session_panel():
     except (discord.NotFound, discord.Forbidden):
         return
 
-    stats_text = await get_current_session_stats_text(guild)
+    stats_text, session_active = await get_current_session_stats_text(guild)
     try:
-        await message.edit(view=SessionPanelLayout(stats_text))
+        await message.edit(view=SessionPanelLayout(stats_text, session_active))
     except discord.HTTPException:
         pass
 
@@ -636,8 +650,8 @@ async def session_panel(interaction: discord.Interaction, channel: discord.TextC
     target_channel = channel or interaction.channel
 
     await interaction.response.defer(ephemeral=True)
-    stats_text = await get_current_session_stats_text(interaction.guild)
-    message = await target_channel.send(view=SessionPanelLayout(stats_text))
+    stats_text, session_active = await get_current_session_stats_text(interaction.guild)
+    message = await target_channel.send(view=SessionPanelLayout(stats_text, session_active))
 
     set_session_panel_location(target_channel.id, message.id)
 
