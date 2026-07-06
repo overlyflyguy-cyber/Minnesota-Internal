@@ -28,6 +28,7 @@ REDIRECT_URI = os.getenv('REDIRECT_URI')  # e.g. https://yourapp.up.railway.app/
 
 # ---------- DASHBOARD CONTENT ----------
 DASHBOARD_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/dashboard%20banner%20(1).png"
+FOOTER_IMAGE_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/Footer.png"
 WHITELISTED_GROUP_URL = "https://www.roblox.com/communities/594557850/Minnesota-State-Roleplay-VC-Only#!/about"
 
 DISCORD_RULES_TEXT = """<:Minnesota:1523131744285360232> # Discord Rules
@@ -326,7 +327,7 @@ class DashboardLayout(discord.ui.LayoutView):
         ))
 
         container.add_item(discord.ui.TextDisplay(
-            f"{CUSTOM_EMOJI} **Welcome to Minnesota State Roleplay**\n"
+            f"{CUSTOM_EMOJI} # Welcome to Minnesota State Roleplay\n"
             "Read the regulations before engaging in our community, join our whitelisted "
             "Roblox group, and tap **Notifications** to choose which pings you'd like to receive."
         ))
@@ -357,6 +358,10 @@ class DashboardLayout(discord.ui.LayoutView):
         container.add_item(discord.ui.Separator())
 
         container.add_item(discord.ui.TextDisplay("*Built by Community*"))
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(FOOTER_IMAGE_URL)
+        ))
 
         self.add_item(container)
 
