@@ -619,6 +619,16 @@ async def send_session_announcement(guild: discord.Guild, text: str):
     view.add_item(container)
     return await channel.send(view=view)
 
+def build_session_start_text(role):
+    return (
+        f"{CUSTOM_EMOJI} **Session Starting!** {role.mention if role else ''}\n"
+        "> The session has started, please join with the code below. If you voted, you must "
+        "join or you will face disciplinary action.\n\n"
+        "**ERLC Server Information**\n"
+        f"> Join Code: `{SESSION_JOIN_CODE}`\n"
+        f"> Server Name: `{SESSION_SERVER_NAME}`"
+    )
+
 @bot.tree.command(name="session-panel", description="Post the live sessions panel", guild=GUILD_ID)
 @app_commands.describe(channel="The channel to post the panel in (defaults to this channel)")
 @has_panel_role()
@@ -639,11 +649,7 @@ async def session_startup(interaction: discord.Interaction):
     role = interaction.guild.get_role(SESSION_HOST_ROLE_ID)
     set_session_active(True, int(time.time()))
 
-    await send_session_announcement(
-        interaction.guild,
-        f"{CUSTOM_EMOJI} **Session Starting!** {role.mention if role else ''}\n"
-        f"Join Code: `{SESSION_JOIN_CODE}`"
-    )
+    await send_session_announcement(interaction.guild, build_session_start_text(role))
 
     await interaction.response.send_message(f"Session started in <#{SESSION_ANNOUNCE_CHANNEL_ID}>!", ephemeral=True)
 
@@ -707,17 +713,17 @@ class SessionVoteButton(discord.ui.Button):
 
         if len(voters) >= threshold:
             mark_session_vote_triggered(layout.message_id)
-            self.disabled = True
             set_session_active(True, int(time.time()))
 
             role = interaction.guild.get_role(SESSION_HOST_ROLE_ID)
-            await interaction.response.edit_message(view=layout)
-            await send_session_announcement(
-                interaction.guild,
-                f"{CUSTOM_EMOJI} **Session Starting!** {role.mention if role else ''}\n"
-                f"The vote passed with {len(voters)} votes.\n"
-                f"Join Code: `{SESSION_JOIN_CODE}`"
-            )
+
+            await interaction.response.defer()
+            try:
+                await interaction.message.delete()
+            except discord.HTTPException:
+                pass
+
+            await send_session_announcement(interaction.guild, build_session_start_text(role))
         else:
             await interaction.response.edit_message(view=layout)
 
