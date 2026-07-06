@@ -18,6 +18,11 @@ VERIFIED_ROLE_ID = 1522461264503115898
 SUGGESTION_ROLE_ID = 1522459683577790575  # role allowed to post in discussion threads
 SUGGESTIONS_CHANNEL_ID = 1522486329097850970
 
+SESSION_ROLE_ID = 1522458566932299786
+SESSION_CHANNEL_ID = 1522460648288682056
+ERLC_API_KEY = os.getenv('ERLC_API_KEY')
+ERLC_COMMAND_URL = "https://api.policeroleplay.community/v1/server/command"
+
 WELCOME_CHANNEL_ID = 1522461848098574426
 CHANNEL_LINK = "https://discord.com/channels/1522138994190585916/1522461848098574426"
 CUSTOM_EMOJI = "<:Minnesota:1523131744285360232>"
@@ -26,6 +31,14 @@ DASHBOARD_EMOJI = "<:msrp_book:1523379794417287350>"
 ROBLOX_CLIENT_ID = os.getenv('ROBLOX_CLIENT_ID')
 ROBLOX_CLIENT_SECRET = os.getenv('ROBLOX_CLIENT_SECRET')
 REDIRECT_URI = os.getenv('REDIRECT_URI')  # e.g. https://yourapp.up.railway.app/callback
+
+ERLC_API_KEY = os.getenv('ERLC_API_KEY')
+SESSION_ROLE_ID = 1522458566932299786
+SESSION_ANNOUNCE_CHANNEL_ID = 1522460648288682056
+
+ERLC_SERVER_KEY = os.getenv('ERLC_SERVER_KEY')
+ERLC_COMMAND_URL = "https://api.policeroleplay.community/v1/server/command"
+SESSION_CHANNEL_ID = 0  # TODO: replace with your actual session announcements channel ID
 
 # ---------- DASHBOARD CONTENT ----------
 DASHBOARD_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/dashboard%20banner%20(1).png"
@@ -171,6 +184,9 @@ async def on_ready():
         down = set(int(x) for x in row["down_votes"].split(",") if x)
         view = SuggestionView(row["message_id"], len(up), len(down))
         bot.add_view(view, message_id=row["message_id"])
+
+    # reattach persistent session panel buttons after a restart/redeploy
+    bot.add_view(SessionPanelView())
 
     print(f'Logged in as {bot.user}')
 
@@ -341,6 +357,27 @@ def has_panel_role():
         return any(role.id == PANEL_ROLE_ID for role in interaction.user.roles)
     return app_commands.check(predicate)
 
+def has_role(role_id):
+    async def predicate(interaction: discord.Interaction) -> bool:
+        return any(role.id == role_id for role in interaction.user.roles)
+    return app_commands.check(predicate)
+
+def user_has_role(member, role_id):
+    return any(role.id == role_id for role in member.roles)
+
+def send_erlc_command(command_text):
+    try:
+        response = requests.post(
+            ERLC_COMMAND_URL,
+            headers={"server-key": ERLC_API_KEY, "Content-Type": "application/json"},
+            json={"command": command_text},
+            timeout=10
+        )
+        return response.status_code == 200
+    except Exception as e:
+        print(f"ER:LC command error: {e}")
+        return False
+
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.CheckFailure):
@@ -359,6 +396,75 @@ async def dashboard(interaction: discord.Interaction):
 
     await channel.send(view=DashboardLayout())
     await interaction.response.send_message(f"Dashboard posted in {channel.mention}!", ephemeral=True)
+
+# ---------- SESSIONS ----------
+class SessionBoostButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Session Boost", style=discord.ButtonStyle.primary, custom_id="session_boost")
+
+    async def callback(self, interaction: discord.Interaction):
+        if not user_has_role(interaction.user, SESSION_ROLE_ID):
+            await interaction.response.send_message("You don't have permission to use this.", ephemeral=True)
+            return
+
+        channel = interaction.guild.get_channel(SESSION_CHANNEL_ID)
+        if channel:
+            await channel.send("🚀 **Session Boost Activated!** Extra rewards are live during this session — jump in now!")
+
+        await interaction.response.send_message("Session boost announcement posted!", ephemeral=True)
+
+class SessionStartupButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Session Startup", style=discord.ButtonStyle.success, custom_id="session_startup")
+
+    async def callback(self, interaction: discord.Interaction):
+        if not user_has_role(interaction.user, SESSION_ROLE_ID):
+            await interaction.response.send_message("You don't have permission to use this.", ephemeral=True)
+            return
+
+        sent = send_erlc_command(":m Session is now starting! Join the server now.")
+
+        channel = interaction.guild.get_channel(SESSION_CHANNEL_ID)
+        if channel:
+            await channel.send("🟢 **Session Started!** The server is now live, join now!")
+
+        if sent:
+            await interaction.response.send_message("Session startup command sent!", ephemeral=True)
+        else:
+            await interaction.response.send_message("Announcement posted, but the in-game command failed to send. Check the API key.", ephemeral=True)
+
+class SessionShutdownButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Session Shutdown", style=discord.ButtonStyle.danger, custom_id="session_shutdown")
+
+    async def callback(self, interaction: discord.Interaction):
+        if not user_has_role(interaction.user, SESSION_ROLE_ID):
+            await interaction.response.send_message("You don't have permission to use this.", ephemeral=True)
+            return
+
+        sent = send_erlc_command(":shutdown")
+
+        channel = interaction.guild.get_channel(SESSION_CHANNEL_ID)
+        if channel:
+            await channel.send("🔴 **Session Ended.** Thanks for joining, see you next time!")
+
+        if sent:
+            await interaction.response.send_message("Session shutdown command sent!", ephemeral=True)
+        else:
+            await interaction.response.send_message("Announcement posted, but the in-game command failed to send. Check the API key.", ephemeral=True)
+
+class SessionPanelView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(SessionBoostButton())
+        self.add_item(SessionStartupButton())
+        self.add_item(SessionShutdownButton())
+
+@bot.tree.command(name="session", description="Post the session control panel", guild=GUILD_ID)
+@has_role(SESSION_ROLE_ID)
+async def session(interaction: discord.Interaction):
+    await interaction.channel.send(content="**Session Control Panel**", view=SessionPanelView())
+    await interaction.response.send_message("Session panel posted!", ephemeral=True)
 
 # ---------- SUGGESTIONS ----------
 suggestion_group = app_commands.Group(name="suggestion", description="Suggestion system", guild_ids=[GUILD_ID.id])
@@ -435,6 +541,85 @@ async def suggestion_submit(interaction: discord.Interaction, suggestion: str):
     await interaction.response.send_message(f"Your suggestion has been posted in {channel.mention}!", ephemeral=True)
 
 bot.tree.add_command(suggestion_group)
+
+# ---------- SESSIONS (ER:LC) ----------
+def send_erlc_command(command_text):
+    headers = {"server-key": ERLC_API_KEY, "Content-Type": "application/json"}
+    return requests.post(
+        "https://api.policeroleplay.community/v1/server/command",
+        json={"command": command_text},
+        headers=headers
+    )
+
+class SessionPanelView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    async def check_role(self, interaction: discord.Interaction) -> bool:
+        if not any(role.id == SESSION_ROLE_ID for role in interaction.user.roles):
+            await interaction.response.send_message("You don't have permission to use this.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Session Startup", style=discord.ButtonStyle.success, custom_id="session_startup")
+    async def startup(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self.check_role(interaction):
+            return
+        try:
+            response = send_erlc_command(":m Session is now starting up! Join now.")
+            if response.status_code == 200:
+                await interaction.response.send_message("Startup command sent in-game!", ephemeral=True)
+            else:
+                await interaction.response.send_message(
+                    f"Failed to send command (status {response.status_code}). Check your ER:LC API key.",
+                    ephemeral=True
+                )
+        except Exception as e:
+            await interaction.response.send_message(f"Error sending command: {e}", ephemeral=True)
+
+    @discord.ui.button(label="Session Shutdown", style=discord.ButtonStyle.danger, custom_id="session_shutdown")
+    async def shutdown(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self.check_role(interaction):
+            return
+        try:
+            response = send_erlc_command(":shutdown")
+            if response.status_code == 200:
+                await interaction.response.send_message("Shutdown command sent in-game!", ephemeral=True)
+            else:
+                await interaction.response.send_message(
+                    f"Failed to send command (status {response.status_code}). Check your ER:LC API key.",
+                    ephemeral=True
+                )
+        except Exception as e:
+            await interaction.response.send_message(f"Error sending command: {e}", ephemeral=True)
+
+    @discord.ui.button(label="Session Boost", style=discord.ButtonStyle.primary, custom_id="session_boost")
+    async def boost(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self.check_role(interaction):
+            return
+
+        channel = interaction.guild.get_channel(SESSION_ANNOUNCE_CHANNEL_ID)
+        if not channel:
+            await interaction.response.send_message("Announcement channel not found.", ephemeral=True)
+            return
+
+        embed = discord.Embed(
+            title="Session Boost Active!",
+            description="A session boost is now active! Jump in-game for extra rewards.",
+            color=discord.Color.from_rgb(255, 255, 255)
+        )
+        await channel.send(embed=embed)
+        await interaction.response.send_message(f"Boost announcement posted in {channel.mention}!", ephemeral=True)
+
+@bot.tree.command(name="session", description="Post the session control panel", guild=GUILD_ID)
+@has_panel_role()
+async def session(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="Session Controls",
+        description="Use the buttons below to manage the current ER:LC session.",
+        color=discord.Color.from_rgb(255, 255, 255)
+    )
+    await interaction.response.send_message(embed=embed, view=SessionPanelView())
 
 @bot.event
 async def on_message(message):
