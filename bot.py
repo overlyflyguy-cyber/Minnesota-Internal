@@ -328,8 +328,8 @@ class DashboardLayout(discord.ui.LayoutView):
 
         container.add_item(discord.ui.TextDisplay(
             f"# {CUSTOM_EMOJI} Welcome to Minnesota State Roleplay\n"
-            "Read the regulations before engaging in our community, join our whitelisted "
-            "Roblox group, and tap **Notifications** to choose which pings you'd like to receive."
+            "Read the following rules and regulations before engaging in our community, "
+            "also join our whitelisted group."
         ))
 
         container.add_item(discord.ui.Separator())
@@ -356,8 +356,6 @@ class DashboardLayout(discord.ui.LayoutView):
         ))
 
         container.add_item(discord.ui.Separator())
-
-        container.add_item(discord.ui.TextDisplay("*Built by Community*"))
 
         container.add_item(discord.ui.MediaGallery(
             discord.MediaGalleryItem(FOOTER_IMAGE_URL)
