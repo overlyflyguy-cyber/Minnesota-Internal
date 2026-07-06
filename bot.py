@@ -672,7 +672,8 @@ async def session_boost(interaction: discord.Interaction):
 
     await send_session_announcement(
         interaction.guild,
-        f"{CUSTOM_EMOJI} **Session Boost!** {role.mention if role else ''}"
+        f"{CUSTOM_EMOJI} **Session Boost!** {role.mention if role else ''}\n"
+        "> Session has lots of spots open! Join up for some high quality roleplays."
     )
 
     await interaction.response.send_message(f"Session boost posted in <#{SESSION_ANNOUNCE_CHANNEL_ID}>!", ephemeral=True)
