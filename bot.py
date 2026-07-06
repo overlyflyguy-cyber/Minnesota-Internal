@@ -29,8 +29,8 @@ CHECK_EMOJI = "<:msrp_check:1523404318835871897>"
 SESSION_HOST_ROLE_ID = 1523725985973932144  # role pinged by startup/boost + on vote success, allowed to run session-* commands
 ON_DUTY_ROLE_ID = 1522691349932146828       # Melonly "on shift" role, used for the Online Staff tracker
 ERLC_API_KEY = os.getenv('ERLC_API_KEY')
-ERLC_SERVER_STATS_URL = "https://api.policeroleplay.community/v1/server"
-ERLC_SERVER_QUEUE_URL = "https://api.policeroleplay.community/v1/server/queue"
+ERLC_SERVER_STATS_URL = "https://api.erlc.gg/v1/server"
+ERLC_SERVER_QUEUE_URL = "https://api.erlc.gg/v1/server/queue"
 
 ROBLOX_CLIENT_ID = os.getenv('ROBLOX_CLIENT_ID')
 ROBLOX_CLIENT_SECRET = os.getenv('ROBLOX_CLIENT_SECRET')
