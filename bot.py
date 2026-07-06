@@ -7,6 +7,7 @@ import threading
 import secrets
 import sqlite3
 import requests
+from urllib.parse import quote
 from flask import Flask, request
 
 # ---------- CONFIG ----------
@@ -466,7 +467,13 @@ async def dashboard(interaction: discord.Interaction):
 # ---------- SESSIONS ----------
 SESSION_JOIN_CODE = "msrpvconly"
 SESSION_SERVER_NAME = "Minnesota State Roleplay | VC Only"
-INGAME_SERVER_URL = "https://www.roblox.com/games/2534724415/Emergency-Response-Liberty-County"
+ERLC_PLACE_ID = "2534724415"  # Emergency Response: Liberty County's Roblox place ID
+
+def build_quick_join_url():
+    # Passes the private server join code as Roblox launchData, which ERLC's
+    # client script reads via Player:GetJoinData() to jump straight into the
+    # server matching that code (same technique other ERLC Discord bots use).
+    return f"https://www.roblox.com/games/start?placeId={ERLC_PLACE_ID}&launchData={quote(SESSION_JOIN_CODE)}"
 
 def has_session_host_role():
     async def predicate(interaction: discord.Interaction) -> bool:
@@ -539,7 +546,7 @@ def build_session_status_row(session_active: bool):
     row.add_item(discord.ui.Button(
         label="Game Quick-Join",
         style=discord.ButtonStyle.link,
-        url=INGAME_SERVER_URL
+        url=build_quick_join_url()
     ))
     return row
 
