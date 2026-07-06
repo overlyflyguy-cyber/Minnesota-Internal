@@ -303,7 +303,7 @@ class DashboardLayout(discord.ui.LayoutView):
 
         container.add_item(discord.ui.Section(
             discord.ui.TextDisplay(
-                "<:rules_book:1523521546851979395> **Discord Rules**\n-# Conduct and guidelines across our Discord server. Read before posting."
+                "<:MSRP_book:1523566878751064096> **Discord Rules**\n-# Conduct and guidelines across our Discord server. Read before posting."
             ),
             accessory=DiscordRulesButton()
         ))
