@@ -32,7 +32,7 @@ FOOTER_IMAGE_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minneso
 WHITELISTED_GROUP_URL = "https://www.roblox.com/communities/594557850/Minnesota-State-Roleplay-VC-Only#!/about"
 
 DISCORD_RULES_INTRO = (
-    f"{CUSTOM_EMOJI} # Discord Rules\n"
+    "<:msrp_book:1523525460565299340> **Discord Rules**\n"
     "-# While in the Minnesota State Roleplay discord, you are required to follow the following "
     "rules. Failure to follow any of such rules will result in moderation."
 )
@@ -49,7 +49,7 @@ DISCORD_RULES_ITEMS = [
 ]
 
 INGAME_RULES_INTRO = (
-    f"{CUSTOM_EMOJI} # In-Game Rules\n"
+    "<:msrp_book:1523525460565299340> **In-Game Rules**\n"
     "-# If you do not follow any of the following in-game regulations while inside of our "
     "sessions, you will be moderated."
 )
