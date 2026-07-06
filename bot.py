@@ -365,19 +365,6 @@ def has_role(role_id):
 def user_has_role(member, role_id):
     return any(role.id == role_id for role in member.roles)
 
-def send_erlc_command(command_text):
-    try:
-        response = requests.post(
-            ERLC_COMMAND_URL,
-            headers={"server-key": ERLC_API_KEY, "Content-Type": "application/json"},
-            json={"command": command_text},
-            timeout=10
-        )
-        return response.status_code == 200
-    except Exception as e:
-        print(f"ER:LC command error: {e}")
-        return False
-
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.CheckFailure):
@@ -396,75 +383,6 @@ async def dashboard(interaction: discord.Interaction):
 
     await channel.send(view=DashboardLayout())
     await interaction.response.send_message(f"Dashboard posted in {channel.mention}!", ephemeral=True)
-
-# ---------- SESSIONS ----------
-class SessionBoostButton(discord.ui.Button):
-    def __init__(self):
-        super().__init__(label="Session Boost", style=discord.ButtonStyle.primary, custom_id="session_boost")
-
-    async def callback(self, interaction: discord.Interaction):
-        if not user_has_role(interaction.user, SESSION_ROLE_ID):
-            await interaction.response.send_message("You don't have permission to use this.", ephemeral=True)
-            return
-
-        channel = interaction.guild.get_channel(SESSION_CHANNEL_ID)
-        if channel:
-            await channel.send("🚀 **Session Boost Activated!** Extra rewards are live during this session — jump in now!")
-
-        await interaction.response.send_message("Session boost announcement posted!", ephemeral=True)
-
-class SessionStartupButton(discord.ui.Button):
-    def __init__(self):
-        super().__init__(label="Session Startup", style=discord.ButtonStyle.success, custom_id="session_startup")
-
-    async def callback(self, interaction: discord.Interaction):
-        if not user_has_role(interaction.user, SESSION_ROLE_ID):
-            await interaction.response.send_message("You don't have permission to use this.", ephemeral=True)
-            return
-
-        sent = send_erlc_command(":m Session is now starting! Join the server now.")
-
-        channel = interaction.guild.get_channel(SESSION_CHANNEL_ID)
-        if channel:
-            await channel.send("🟢 **Session Started!** The server is now live, join now!")
-
-        if sent:
-            await interaction.response.send_message("Session startup command sent!", ephemeral=True)
-        else:
-            await interaction.response.send_message("Announcement posted, but the in-game command failed to send. Check the API key.", ephemeral=True)
-
-class SessionShutdownButton(discord.ui.Button):
-    def __init__(self):
-        super().__init__(label="Session Shutdown", style=discord.ButtonStyle.danger, custom_id="session_shutdown")
-
-    async def callback(self, interaction: discord.Interaction):
-        if not user_has_role(interaction.user, SESSION_ROLE_ID):
-            await interaction.response.send_message("You don't have permission to use this.", ephemeral=True)
-            return
-
-        sent = send_erlc_command(":shutdown")
-
-        channel = interaction.guild.get_channel(SESSION_CHANNEL_ID)
-        if channel:
-            await channel.send("🔴 **Session Ended.** Thanks for joining, see you next time!")
-
-        if sent:
-            await interaction.response.send_message("Session shutdown command sent!", ephemeral=True)
-        else:
-            await interaction.response.send_message("Announcement posted, but the in-game command failed to send. Check the API key.", ephemeral=True)
-
-class SessionPanelView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-        self.add_item(SessionBoostButton())
-        self.add_item(SessionStartupButton())
-        self.add_item(SessionShutdownButton())
-
-@bot.tree.command(name="session", description="Post the session control panel", guild=GUILD_ID)
-@has_role(SESSION_ROLE_ID)
-async def session(interaction: discord.Interaction):
-    await interaction.channel.send(content="**Session Control Panel**", view=SessionPanelView())
-    await interaction.response.send_message("Session panel posted!", ephemeral=True)
 
 # ---------- SUGGESTIONS ----------
 suggestion_group = app_commands.Group(name="suggestion", description="Suggestion system", guild_ids=[GUILD_ID.id])
