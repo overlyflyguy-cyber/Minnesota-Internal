@@ -363,9 +363,17 @@ class DashboardLayout(discord.ui.LayoutView):
 
         self.add_item(container)
 
+DASHBOARD_POST_CHANNEL_ID = 1522459494569738382
+
 @bot.tree.command(name="dashboard", description="Show the Minnesota State Roleplay dashboard", guild=GUILD_ID)
 async def dashboard(interaction: discord.Interaction):
-    await interaction.response.send_message(view=DashboardLayout())
+    channel = interaction.guild.get_channel(DASHBOARD_POST_CHANNEL_ID)
+    if not channel:
+        await interaction.response.send_message("Dashboard channel not found. Contact an admin.", ephemeral=True)
+        return
+
+    await channel.send(view=DashboardLayout())
+    await interaction.response.send_message(f"Dashboard posted in {channel.mention}!", ephemeral=True)
 
 # ---------- SUGGESTIONS ----------
 suggestion_group = app_commands.Group(name="suggestion", description="Suggestion system", guild_ids=[GUILD_ID.id])
