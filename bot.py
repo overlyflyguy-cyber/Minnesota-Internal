@@ -1,7 +1,8 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
 import os
+import time
 import threading
 import secrets
 import sqlite3
@@ -18,16 +19,18 @@ VERIFIED_ROLE_ID = 1522461264503115898
 SUGGESTION_ROLE_ID = 1522459683577790575  # role allowed to post in discussion threads
 SUGGESTIONS_CHANNEL_ID = 1522486329097850970
 
-SESSION_ROLE_ID = 1522458566932299786  # role allowed to run /session-startup, /session-shutdown, /session-boost
-SESSION_ANNOUNCE_CHANNEL_ID = 1522460648288682056  # channel the session panel + announcements post to
-SESSION_PING_ROLE_ID = 1523725985973932144  # role pinged on session startup/boost
-ERLC_API_KEY = os.getenv('ERLC_API_KEY')
-ERLC_COMMAND_URL = "https://api.policeroleplay.community/v1/server/command"
-
 WELCOME_CHANNEL_ID = 1522461848098574426
 CHANNEL_LINK = "https://discord.com/channels/1522138994190585916/1522461848098574426"
 CUSTOM_EMOJI = "<:Minnesota:1523131744285360232>"
 DASHBOARD_EMOJI = "<:msrp_book:1523379794417287350>"
+CHECK_EMOJI = "<:msrp_check:1523404318835871897>"
+
+# ---------- SESSION CONFIG ----------
+SESSION_HOST_ROLE_ID = 1523725985973932144  # role pinged by startup/boost + on vote success, allowed to run session-* commands
+ON_DUTY_ROLE_ID = 1522691349932146828       # Melonly "on shift" role, used for the Online Staff tracker
+ERLC_API_KEY = os.getenv('ERLC_API_KEY')
+ERLC_SERVER_STATS_URL = "https://api.policeroleplay.community/v1/server"
+ERLC_SERVER_QUEUE_URL = "https://api.policeroleplay.community/v1/server/queue"
 
 ROBLOX_CLIENT_ID = os.getenv('ROBLOX_CLIENT_ID')
 ROBLOX_CLIENT_SECRET = os.getenv('ROBLOX_CLIENT_SECRET')
@@ -35,12 +38,11 @@ REDIRECT_URI = os.getenv('REDIRECT_URI')  # e.g. https://yourapp.up.railway.app/
 
 # ---------- DASHBOARD CONTENT ----------
 DASHBOARD_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/dashboard%20banner%20(1).png"
-SESSION_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/sessions%20banner.png"
 FOOTER_IMAGE_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/Footer.png"
 WHITELISTED_GROUP_URL = "https://www.roblox.com/communities/594557850/Minnesota-State-Roleplay-VC-Only#!/about"
 
 DISCORD_RULES_INTRO = (
-    "<:MSRP_book:1523566878751064096> **Discord Rules**\n"
+    "<:msrp_book:1523525460565299340> **Discord Rules**\n"
     "-# While in the Minnesota State Roleplay discord, you are required to follow the following "
     "rules. Failure to follow any of such rules will result in moderation."
 )
@@ -57,7 +59,7 @@ DISCORD_RULES_ITEMS = [
 ]
 
 INGAME_RULES_INTRO = (
-    "<:MSRP_book:1523566878751064096> **In-Game Rules**\n"
+    "<:msrp_book:1523525460565299340> **In-Game Rules**\n"
     "-# If you do not follow any of the following in-game regulations while inside of our "
     "sessions, you will be moderated."
 )
@@ -106,6 +108,24 @@ def init_db():
             suggestion_id INTEGER,
             up_votes TEXT DEFAULT '',
             down_votes TEXT DEFAULT ''
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS session_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            active INTEGER DEFAULT 0,
+            start_time INTEGER,
+            panel_channel_id INTEGER,
+            panel_message_id INTEGER
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS session_votes (
+            message_id INTEGER PRIMARY KEY,
+            channel_id INTEGER,
+            threshold INTEGER,
+            voters TEXT DEFAULT '',
+            triggered INTEGER DEFAULT 0
         )
     """)
     conn.commit()
@@ -161,6 +181,69 @@ def get_all_suggestions():
     conn.close()
     return rows
 
+# ---------- SESSION STATE HELPERS ----------
+def get_session_state():
+    conn = get_db()
+    row = conn.execute("SELECT * FROM session_state WHERE id = 1").fetchone()
+    conn.close()
+    return row
+
+def set_session_panel_location(channel_id, message_id):
+    conn = get_db()
+    conn.execute("""
+        INSERT INTO session_state (id, active, start_time, panel_channel_id, panel_message_id)
+        VALUES (1, 0, NULL, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET panel_channel_id = excluded.panel_channel_id, panel_message_id = excluded.panel_message_id
+    """, (channel_id, message_id))
+    conn.commit()
+    conn.close()
+
+def set_session_active(active: bool, start_time=None):
+    conn = get_db()
+    conn.execute("""
+        INSERT INTO session_state (id, active, start_time, panel_channel_id, panel_message_id)
+        VALUES (1, ?, ?, NULL, NULL)
+        ON CONFLICT(id) DO UPDATE SET active = excluded.active, start_time = ?
+    """, (1 if active else 0, start_time, start_time))
+    conn.commit()
+    conn.close()
+
+def create_session_vote(message_id, channel_id, threshold):
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO session_votes (message_id, channel_id, threshold, voters, triggered) VALUES (?, ?, ?, '', 0)",
+        (message_id, channel_id, threshold)
+    )
+    conn.commit()
+    conn.close()
+
+def get_session_vote(message_id):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM session_votes WHERE message_id = ?", (message_id,)).fetchone()
+    conn.close()
+    return row
+
+def save_session_vote_voters(message_id, voters_set):
+    conn = get_db()
+    conn.execute(
+        "UPDATE session_votes SET voters = ? WHERE message_id = ?",
+        (",".join(str(x) for x in voters_set), message_id)
+    )
+    conn.commit()
+    conn.close()
+
+def mark_session_vote_triggered(message_id):
+    conn = get_db()
+    conn.execute("UPDATE session_votes SET triggered = 1 WHERE message_id = ?", (message_id,))
+    conn.commit()
+    conn.close()
+
+def get_untriggered_session_votes():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM session_votes WHERE triggered = 0").fetchall()
+    conn.close()
+    return rows
+
 # ---------- DISCORD BOT ----------
 intents = discord.Intents.default()
 intents.message_content = True
@@ -179,8 +262,14 @@ async def on_ready():
         view = SuggestionView(row["message_id"], len(up), len(down))
         bot.add_view(view, message_id=row["message_id"])
 
-    # reattach persistent session panel buttons after a restart/redeploy
-    bot.add_view(SessionPanelView())
+    # reattach persistent session vote buttons after a restart/redeploy
+    for row in get_untriggered_session_votes():
+        voters = set(int(x) for x in row["voters"].split(",") if x)
+        vote_view = SessionVoteView(row["message_id"], len(voters), row["threshold"])
+        bot.add_view(vote_view, message_id=row["message_id"])
+
+    if not refresh_session_panel.is_running():
+        refresh_session_panel.start()
 
     print(f'Logged in as {bot.user}')
 
@@ -313,7 +402,7 @@ class DashboardLayout(discord.ui.LayoutView):
 
         container.add_item(discord.ui.Section(
             discord.ui.TextDisplay(
-                "<:MSRP_book:1523566878751064096> **Discord Rules**\n-# Conduct and guidelines across our Discord server. Read before posting."
+                "<:rules_book:1523521546851979395> **Discord Rules**\n-# Conduct and guidelines across our Discord server. Read before posting."
             ),
             accessory=DiscordRulesButton()
         ))
@@ -351,14 +440,6 @@ def has_panel_role():
         return any(role.id == PANEL_ROLE_ID for role in interaction.user.roles)
     return app_commands.check(predicate)
 
-def has_role(role_id):
-    async def predicate(interaction: discord.Interaction) -> bool:
-        return any(role.id == role_id for role in interaction.user.roles)
-    return app_commands.check(predicate)
-
-def user_has_role(member, role_id):
-    return any(role.id == role_id for role in member.roles)
-
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.CheckFailure):
@@ -377,6 +458,274 @@ async def dashboard(interaction: discord.Interaction):
 
     await channel.send(view=DashboardLayout())
     await interaction.response.send_message(f"Dashboard posted in {channel.mention}!", ephemeral=True)
+
+# ---------- SESSIONS ----------
+SESSION_JOIN_CODE = "msrpvconly"
+SESSION_SERVER_NAME = "Minnesota State Roleplay | VC Only"
+
+def has_session_host_role():
+    async def predicate(interaction: discord.Interaction) -> bool:
+        return any(role.id == SESSION_HOST_ROLE_ID for role in interaction.user.roles)
+    return app_commands.check(predicate)
+
+async def fetch_erlc_stats():
+    """Returns (current_players, max_players, queue_count). Any value is None on failure."""
+    if not ERLC_API_KEY:
+        return None, None, None
+
+    def _fetch():
+        headers = {"server-key": ERLC_API_KEY}
+        current = maximum = queue = None
+        try:
+            r = requests.get(ERLC_SERVER_STATS_URL, headers=headers, timeout=10)
+            if r.ok:
+                data = r.json()
+                current = data.get("CurrentPlayers")
+                maximum = data.get("MaxPlayers")
+        except Exception:
+            pass
+        try:
+            r = requests.get(ERLC_SERVER_QUEUE_URL, headers=headers, timeout=10)
+            if r.ok:
+                queue_list = r.json()
+                if isinstance(queue_list, list):
+                    queue = len(queue_list)
+        except Exception:
+            pass
+        return current, maximum, queue
+
+    return await bot.loop.run_in_executor(None, _fetch)
+
+def build_session_stats_text(current, maximum, queue, online_staff, session_active, start_time):
+    player_str = f"{current}/{maximum}" if current is not None and maximum is not None else "N/A"
+    queue_str = str(queue) if queue is not None else "N/A"
+
+    if session_active and start_time:
+        timer_str = f"<t:{int(start_time)}:R>"
+    else:
+        timer_str = "No active session"
+
+    return (
+        "**Server Stats**\n"
+        f"> Player Count: `{player_str}`\n"
+        f"> Online Staff: `{online_staff}`\n"
+        f"> Server Queue: `{queue_str}`\n\n"
+        f"-# Session has been up since {timer_str}"
+    )
+
+class SessionPanelLayout(discord.ui.LayoutView):
+    def __init__(self, stats_text):
+        super().__init__(timeout=None)
+
+        container = discord.ui.Container()
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(DASHBOARD_BANNER_URL)
+        ))
+
+        container.add_item(discord.ui.TextDisplay(
+            f"{CUSTOM_EMOJI} # Minnesota State Sessions\n"
+            "> Our sessions run from the discretion of our session managers, sessions will be "
+            "held till the player count drops below 10 players."
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.TextDisplay(
+            "**ERLC Server Information**\n"
+            f"> Join Code: `{SESSION_JOIN_CODE}`\n"
+            f"> Server Name: `{SESSION_SERVER_NAME}`"
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.TextDisplay(stats_text))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(FOOTER_IMAGE_URL)
+        ))
+
+        self.add_item(container)
+
+async def get_current_session_stats_text(guild: discord.Guild):
+    current, maximum, queue = await fetch_erlc_stats()
+
+    on_duty_role = guild.get_role(ON_DUTY_ROLE_ID)
+    online_staff = len(on_duty_role.members) if on_duty_role else 0
+
+    state = get_session_state()
+    session_active = bool(state["active"]) if state else False
+    start_time = state["start_time"] if state else None
+
+    return build_session_stats_text(current, maximum, queue, online_staff, session_active, start_time)
+
+@tasks.loop(seconds=60)
+async def refresh_session_panel():
+    state = get_session_state()
+    if not state or not state["panel_channel_id"] or not state["panel_message_id"]:
+        return
+
+    guild = bot.get_guild(GUILD_ID.id)
+    if not guild:
+        return
+
+    channel = guild.get_channel(state["panel_channel_id"])
+    if not channel:
+        return
+
+    try:
+        message = await channel.fetch_message(state["panel_message_id"])
+    except (discord.NotFound, discord.Forbidden):
+        return
+
+    stats_text = await get_current_session_stats_text(guild)
+    try:
+        await message.edit(view=SessionPanelLayout(stats_text))
+    except discord.HTTPException:
+        pass
+
+@bot.tree.command(name="session-panel", description="Post the live sessions panel", guild=GUILD_ID)
+@app_commands.describe(channel="The channel to post the panel in (defaults to this channel)")
+@has_panel_role()
+async def session_panel(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    target_channel = channel or interaction.channel
+
+    await interaction.response.defer(ephemeral=True)
+    stats_text = await get_current_session_stats_text(interaction.guild)
+    message = await target_channel.send(view=SessionPanelLayout(stats_text))
+
+    set_session_panel_location(target_channel.id, message.id)
+
+    await interaction.followup.send(f"Sessions panel posted in {target_channel.mention}!", ephemeral=True)
+
+@bot.tree.command(name="session-startup", description="Start the current session and ping the session host role", guild=GUILD_ID)
+@has_session_host_role()
+async def session_startup(interaction: discord.Interaction):
+    role = interaction.guild.get_role(SESSION_HOST_ROLE_ID)
+    set_session_active(True, int(time.time()))
+
+    await interaction.response.send_message(
+        f"{CUSTOM_EMOJI} **Session Starting!** {role.mention if role else ''}\n"
+        f"Join Code: `{SESSION_JOIN_CODE}`"
+    )
+
+@bot.tree.command(name="session-shutdown", description="Shut down the current session", guild=GUILD_ID)
+@has_session_host_role()
+async def session_shutdown(interaction: discord.Interaction):
+    set_session_active(False, None)
+
+    await interaction.response.send_message(f"{CUSTOM_EMOJI} **Session has been shut down.** Thanks for playing!")
+
+@bot.tree.command(name="session-boost", description="Announce a session boost and ping the session host role", guild=GUILD_ID)
+@has_session_host_role()
+async def session_boost(interaction: discord.Interaction):
+    role = interaction.guild.get_role(SESSION_HOST_ROLE_ID)
+    await interaction.response.send_message(f"{CUSTOM_EMOJI} **Session Boost!** {role.mention if role else ''}")
+
+# ---------- SESSION VOTE ----------
+class SessionVoteThresholdModal(discord.ui.Modal, title="Session Vote"):
+    threshold = discord.ui.TextInput(
+        label="Votes needed to start the session",
+        placeholder="e.g. 10",
+        required=True,
+        max_length=3
+    )
+
+    def __init__(self):
+        super().__init__()
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            threshold_value = int(self.threshold.value)
+            if threshold_value <= 0:
+                raise ValueError
+        except ValueError:
+            await interaction.response.send_message("Please enter a valid positive number.", ephemeral=True)
+            return
+
+        stats_text = await get_current_session_stats_text(interaction.guild)
+        state = get_session_state()
+        target_channel = interaction.channel
+        if state and state["panel_channel_id"]:
+            resolved = interaction.guild.get_channel(state["panel_channel_id"])
+            if resolved:
+                target_channel = resolved
+
+        vote_text = (
+            f"{CUSTOM_EMOJI} # Minnesota State Sessions\n"
+            "> Vote below to help start the next session! Once enough votes are in, "
+            "the session host role will be pinged and the session will kick off."
+        )
+
+        view = discord.ui.LayoutView(timeout=None)
+        container = discord.ui.Container()
+        container.add_item(discord.ui.MediaGallery(discord.MediaGalleryItem(DASHBOARD_BANNER_URL)))
+        container.add_item(discord.ui.TextDisplay(vote_text))
+        container.add_item(discord.ui.Separator())
+        container.add_item(discord.ui.MediaGallery(discord.MediaGalleryItem(FOOTER_IMAGE_URL)))
+        view.add_item(container)
+
+        message = await target_channel.send(view=view)
+
+        create_session_vote(message.id, target_channel.id, threshold_value)
+
+        vote_view = SessionVoteView(message.id, 0, threshold_value)
+        await message.edit(view=vote_view)
+
+        await interaction.response.send_message(f"Session vote posted in {target_channel.mention}!", ephemeral=True)
+
+class SessionVoteView(discord.ui.View):
+    def __init__(self, message_id, vote_count=0, threshold=1):
+        super().__init__(timeout=None)
+        self.message_id = message_id
+        self.threshold = threshold
+        self.children[0].label = f"{vote_count}/{threshold}"
+
+    @discord.ui.button(label="0/0", emoji=CHECK_EMOJI, style=discord.ButtonStyle.success, custom_id="session_vote_button")
+    async def vote(self, interaction: discord.Interaction, button: discord.ui.Button):
+        row = get_session_vote(self.message_id)
+        if not row:
+            await interaction.response.send_message("This vote is no longer active.", ephemeral=True)
+            return
+
+        if row["triggered"]:
+            await interaction.response.send_message("This vote has already succeeded.", ephemeral=True)
+            return
+
+        threshold = row["threshold"]
+        voters = set(int(x) for x in row["voters"].split(",") if x)
+        user_id = interaction.user.id
+
+        if user_id in voters:
+            voters.discard(user_id)
+        else:
+            voters.add(user_id)
+
+        save_session_vote_voters(self.message_id, voters)
+
+        button.label = f"{len(voters)}/{threshold}"
+
+        if len(voters) >= threshold:
+            mark_session_vote_triggered(self.message_id)
+            button.disabled = True
+            set_session_active(True, int(time.time()))
+
+            role = interaction.guild.get_role(SESSION_HOST_ROLE_ID)
+            await interaction.response.edit_message(view=self)
+            await interaction.channel.send(
+                f"{CUSTOM_EMOJI} **Session Starting!** {role.mention if role else ''}\n"
+                f"The vote passed with {len(voters)} votes.\n"
+                f"Join Code: `{SESSION_JOIN_CODE}`"
+            )
+        else:
+            await interaction.response.edit_message(view=self)
+
+@bot.tree.command(name="session-vote", description="Start a vote to kick off the next session", guild=GUILD_ID)
+@has_session_host_role()
+async def session_vote(interaction: discord.Interaction):
+    await interaction.response.send_modal(SessionVoteThresholdModal())
 
 # ---------- SUGGESTIONS ----------
 suggestion_group = app_commands.Group(name="suggestion", description="Suggestion system", guild_ids=[GUILD_ID.id])
@@ -453,143 +802,6 @@ async def suggestion_submit(interaction: discord.Interaction, suggestion: str):
     await interaction.response.send_message(f"Your suggestion has been posted in {channel.mention}!", ephemeral=True)
 
 bot.tree.add_command(suggestion_group)
-
-# ---------- SESSIONS (ER:LC) ----------
-def send_erlc_command(command_text):
-    headers = {"server-key": ERLC_API_KEY, "Content-Type": "application/json"}
-    return requests.post(
-        "https://api.policeroleplay.community/v1/server/command",
-        json={"command": command_text},
-        headers=headers
-    )
-
-class SessionLayout(discord.ui.LayoutView):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-        container = discord.ui.Container()
-
-        container.add_item(discord.ui.MediaGallery(
-            discord.MediaGalleryItem(SESSION_BANNER_URL)
-        ))
-
-        container.add_item(discord.ui.TextDisplay(
-            "# Session Controls\n"
-            "-# Use the commands below to manage the current ER:LC session. "
-            "Anyone with the session host role can use these."
-        ))
-
-        container.add_item(discord.ui.Separator())
-
-        container.add_item(discord.ui.Section(
-            discord.ui.TextDisplay("**Session Startup**\n-# Starts the session and pings the session host role."),
-            accessory=discord.ui.Button(label="/session-startup", disabled=True, style=discord.ButtonStyle.secondary)
-        ))
-
-        container.add_item(discord.ui.Section(
-            discord.ui.TextDisplay("**Session Shutdown**\n-# Shuts down the current session."),
-            accessory=discord.ui.Button(label="/session-shutdown", disabled=True, style=discord.ButtonStyle.secondary)
-        ))
-
-        container.add_item(discord.ui.Section(
-            discord.ui.TextDisplay("**Session Boost**\n-# Announces a session boost and pings the session host role."),
-            accessory=discord.ui.Button(label="/session-boost", disabled=True, style=discord.ButtonStyle.secondary)
-        ))
-
-        container.add_item(discord.ui.Separator())
-
-        container.add_item(discord.ui.MediaGallery(
-            discord.MediaGalleryItem(FOOTER_IMAGE_URL)
-        ))
-
-        self.add_item(container)
-
-@bot.tree.command(name="session", description="Post the session control panel", guild=GUILD_ID)
-@has_panel_role()
-async def session(interaction: discord.Interaction):
-    channel = interaction.guild.get_channel(SESSION_ANNOUNCE_CHANNEL_ID)
-    if not channel:
-        await interaction.response.send_message("Session channel not found.", ephemeral=True)
-        return
-
-    await channel.send(view=SessionLayout())
-    await interaction.response.send_message(f"Session panel posted in {channel.mention}!", ephemeral=True)
-
-@bot.tree.command(name="session-startup", description="Start the ER:LC session and notify the session role", guild=GUILD_ID)
-@has_role(SESSION_ROLE_ID)
-async def session_startup(interaction: discord.Interaction):
-    channel = interaction.guild.get_channel(SESSION_ANNOUNCE_CHANNEL_ID)
-    if not channel:
-        await interaction.response.send_message("Session channel not found.", ephemeral=True)
-        return
-
-    try:
-        response = send_erlc_command(":m Session is now starting up! Join now.")
-        in_game_ok = response.status_code == 200
-    except Exception:
-        in_game_ok = False
-
-    embed = discord.Embed(
-        title="🟢 Session Started!",
-        description="The server is now live, join now!",
-        color=discord.Color.from_rgb(255, 255, 255)
-    )
-    await channel.send(
-        content=f"<@&{SESSION_PING_ROLE_ID}>",
-        embed=embed,
-        allowed_mentions=discord.AllowedMentions(roles=True)
-    )
-
-    if in_game_ok:
-        await interaction.response.send_message(f"Startup announcement posted in {channel.mention} and command sent in-game!", ephemeral=True)
-    else:
-        await interaction.response.send_message(f"Startup announcement posted in {channel.mention}, but the in-game command failed. Check your ER:LC API key.", ephemeral=True)
-
-@bot.tree.command(name="session-shutdown", description="Shut down the ER:LC session", guild=GUILD_ID)
-@has_role(SESSION_ROLE_ID)
-async def session_shutdown(interaction: discord.Interaction):
-    channel = interaction.guild.get_channel(SESSION_ANNOUNCE_CHANNEL_ID)
-    if not channel:
-        await interaction.response.send_message("Session channel not found.", ephemeral=True)
-        return
-
-    try:
-        response = send_erlc_command(":shutdown")
-        in_game_ok = response.status_code == 200
-    except Exception:
-        in_game_ok = False
-
-    embed = discord.Embed(
-        title="🔴 Session Ended",
-        description="Thanks for joining, see you next time!",
-        color=discord.Color.from_rgb(255, 255, 255)
-    )
-    await channel.send(embed=embed)
-
-    if in_game_ok:
-        await interaction.response.send_message(f"Shutdown announcement posted in {channel.mention} and command sent in-game!", ephemeral=True)
-    else:
-        await interaction.response.send_message(f"Shutdown announcement posted in {channel.mention}, but the in-game command failed. Check your ER:LC API key.", ephemeral=True)
-
-@bot.tree.command(name="session-boost", description="Announce a session boost", guild=GUILD_ID)
-@has_role(SESSION_ROLE_ID)
-async def session_boost(interaction: discord.Interaction):
-    channel = interaction.guild.get_channel(SESSION_ANNOUNCE_CHANNEL_ID)
-    if not channel:
-        await interaction.response.send_message("Session channel not found.", ephemeral=True)
-        return
-
-    embed = discord.Embed(
-        title="Session Boost Active!",
-        description="A session boost is now active! Jump in-game for extra rewards.",
-        color=discord.Color.from_rgb(255, 255, 255)
-    )
-    await channel.send(
-        content=f"<@&{SESSION_PING_ROLE_ID}>",
-        embed=embed,
-        allowed_mentions=discord.AllowedMentions(roles=True)
-    )
-    await interaction.response.send_message(f"Boost announcement posted in {channel.mention}!", ephemeral=True)
 
 @bot.event
 async def on_message(message):
