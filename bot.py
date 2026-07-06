@@ -31,109 +31,45 @@ DASHBOARD_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Min
 FOOTER_IMAGE_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/Footer.png"
 WHITELISTED_GROUP_URL = "https://www.roblox.com/communities/594557850/Minnesota-State-Roleplay-VC-Only#!/about"
 
-DISCORD_RULES_TEXT = """<:Minnesota:1523131744285360232> # Discord Rules
+DISCORD_RULES_INTRO = (
+    f"{CUSTOM_EMOJI} # Discord Rules\n"
+    "-# While in the Minnesota State Roleplay discord, you are required to follow the following "
+    "rules. Failure to follow any of such rules will result in moderation."
+)
 
--# While in the Minnesota State Roleplay discord, you are required to follow the following rules. Failure to follow any of such rules will result in moderation.
+DISCORD_RULES_ITEMS = [
+    "1 **Advertising**\n-# DM advertising is not allowed here and will result in moderation if you are caught doing it, along with advertising to our members.",
+    "2 **English**\n-# Our server is a English only server, so please refrain from using any other languages. Abiding by this rule will result in a more streamlined experience.",
+    "3 **NSFW**\n-# Any NSFW topics are prohibited in this server, all content in here must abide by this rule. Or you will be banned.",
+    "4 **TOS**\n-# All content and topics in this server must abide by both the [Discord TOS](https://discord.com/terms) and [Discord guidelines](https://discord.com/guidelines), failure to do so will result in a ban.",
+    "5 **Moderation Guidelines**\n-# We do not moderate any direct messages or content outside the server. This is unless it involves or impacts Minnesota State Roleplay.",
+    "6 **Display Names**\n-# All display names must be your Roblox user, unless you are Internal Affairs+.",
+    "7 **Respect and Drama**\n-# Any disrespect will result in moderation from our staff team. Along with that please try and keep drama to a minimum, if it escalates, punishments will be issued.",
+    "8 **Trolling**\n-# If you are trolling you will be moderated. We are here to give the community a good roleplay experience. Any trolls will be dealt with."
+]
 
-1 **Advertising**
+INGAME_RULES_INTRO = (
+    f"{CUSTOM_EMOJI} # In-Game Rules\n"
+    "-# If you do not follow any of the following in-game regulations while inside of our "
+    "sessions, you will be moderated."
+)
 
--# DM advertising is not allowed here and will result in moderation if you are caught doing it, along with advertising to our members.
-
-2 **English**
-
--# Our server is a English only server, so please refrain from using any other languages. Abiding by this rule will result in a more streamlined experience.
-
-3 **NSFW**
-
--# Any NSFW topics are prohibited in this server, all content in here must abide by this rule. Or you will be banned.
-
-4 **TOS**
-
--# All content and topics in this server must abide by both the [Discord TOS](https://discord.com/terms) and [Discord guidelines](https://discord.com/guidelines), failure to do so will result in a ban.
-
-5 **Moderation Guidelines**
-
--# We do not moderate any direct messages or content outside the server. This is unless it involves or impacts Minnesota State Roleplay.
-
-6 **Display Names**
-
--# All display names must be your Roblox user, unless you are Internal Affairs+.
-
-7 **Respect and Drama**
-
--# Any disrespect will result in moderation from our staff team. Along with that please try and keep drama to a minimum, if it escalates, punishments will be issued.
-
-8 **Trolling**
-
--# If you are trolling you will be moderated. We are here to give the community a good roleplay experience. Any trolls will be dealt with."""
-
-INGAME_RULES_TEXT = """<:Minnesota:1523131744285360232> # In-Game Rules
-
--# If you do not follow any of the following in-game regulations while inside of our sessions, you will be moderated.
-
-1 **Random Death Match**
-
--# You may not kill another player if not in a roleplay with them and if you don't have a valid reason.
-
-2 **Vehicle Deathmatch**
-
--# Damaging others vehicles or using your vehicle to damage/harm others without a valid in-roleplay reason will result in moderation.
-
-3 **New Life Rule**
-
--# After respawning, you cannot remember anything from that past life. Additionally if you were revived at a hospital, you must forget everything 5 minutes prior to your injuries.
-
-4 **Fail Roleplay**
-
--# Any acts that would be impossible to complete realistically in real life is breaking this rule. For example, jumping out of a car at 50+ mph and walking off fine.
-
-5 **Safe Zones**
-
--# You cannot commit any crimes or harm anyone inside of a safe zone, if you use a safe zone to get out of an RP, you will be moderated. The following are all safe zones, both Civ spawns, both the fire departments and police/sheriff stations.
-
-6 **GTA Driving**
-
--# If you are going above 120+ miles per hour, while not in a pursuit or you have a priority timer, you are GTA Driving. You also must drive realistically and not break laws unnecessarily.
-
-7 **Avatars**
-
--# You must have a realistic avatar, failure to do so will result in moderation from our Staff Team.
-
-8 **Priority**
-
--# When someone has priority timer, for example for a robbery or hostage scene. You cannot break any major laws that would result in increased police presence, for example you cannot run when there is an active priority.
-
-9 **Meta Gaming**
-
--# You cannot meta game, which is using information not obtained in-roleplay, in roleplay. For example an officer says "Out of RP you cannot hear this". Then you go ahead and use that info to your advantage, you are meta gaming and will be moderated.
-
-10 **No Intent to Roleplay**
-
--# You must actively have a roleplay purpose in what you do. You cannot go around and just drive then drive off when an officer wants to stop you. You must have a valid reason for you to flee.
-
-11 **Leaving to Avoid Punishment**
-
--# You cannot leave in-game or in the discord when in a staff scene or to avoid being punished by the staff team. This will result in a ban.
-
-**Banned Roleplays**
-> - ICE Roleplay
-> - Bomb Roleplay
-> - Terror/terrorist Roleplay
-> - Drug Roleplay
-> - Any roleplay against Roblox TOS
-
-**Booster Weapons**
-> - PPSH 41
-> - Remington MSR
-> - Remington 870
-> - Desert Eagle
-
-**Booster Vehicles**
-> - Truckatron (Cybertruck)
-> - Kovac Heladera 2023
-> - Strugatti Ettore 2020
-> - Falcon Heritage Track 2022
-> - Falcon Heritage Track 2021"""
+INGAME_RULES_ITEMS = [
+    "1 **Random Death Match**\n-# You may not kill another player if not in a roleplay with them and if you don't have a valid reason.",
+    "2 **Vehicle Deathmatch**\n-# Damaging others vehicles or using your vehicle to damage/harm others without a valid in-roleplay reason will result in moderation.",
+    "3 **New Life Rule**\n-# After respawning, you cannot remember anything from that past life. Additionally if you were revived at a hospital, you must forget everything 5 minutes prior to your injuries.",
+    "4 **Fail Roleplay**\n-# Any acts that would be impossible to complete realistically in real life is breaking this rule. For example, jumping out of a car at 50+ mph and walking off fine.",
+    "5 **Safe Zones**\n-# You cannot commit any crimes or harm anyone inside of a safe zone, if you use a safe zone to get out of an RP, you will be moderated. The following are all safe zones, both Civ spawns, both the fire departments and police/sheriff stations.",
+    "6 **GTA Driving**\n-# If you are going above 120+ miles per hour, while not in a pursuit or you have a priority timer, you are GTA Driving. You also must drive realistically and not break laws unnecessarily.",
+    "7 **Avatars**\n-# You must have a realistic avatar, failure to do so will result in moderation from our Staff Team.",
+    "8 **Priority**\n-# When someone has priority timer, for example for a robbery or hostage scene. You cannot break any major laws that would result in increased police presence, for example you cannot run when there is an active priority.",
+    "9 **Meta Gaming**\n-# You cannot meta game, which is using information not obtained in-roleplay, in roleplay. For example an officer says \"Out of RP you cannot hear this\". Then you go ahead and use that info to your advantage, you are meta gaming and will be moderated.",
+    "10 **No Intent to Roleplay**\n-# You must actively have a roleplay purpose in what you do. You cannot go around and just drive then drive off when an officer wants to stop you. You must have a valid reason for you to flee.",
+    "11 **Leaving to Avoid Punishment**\n-# You cannot leave in-game or in the discord when in a staff scene or to avoid being punished by the staff team. This will result in a ban.",
+    "**Banned Roleplays**\n> - ICE Roleplay\n> - Bomb Roleplay\n> - Terror/terrorist Roleplay\n> - Drug Roleplay\n> - Any roleplay against Roblox TOS",
+    "**Booster Weapons**\n> - PPSH 41\n> - Remington MSR\n> - Remington 870\n> - Desert Eagle",
+    "**Booster Vehicles**\n> - Truckatron (Cybertruck)\n> - Kovac Heladera 2023\n> - Strugatti Ettore 2020\n> - Falcon Heritage Track 2022\n> - Falcon Heritage Track 2021"
+]
 
 # ---------- DATABASE ----------
 DB_PATH = os.getenv('DB_PATH', '/data/bot.db')
@@ -296,21 +232,51 @@ async def link(interaction: discord.Interaction):
 pending_links = {}  # state -> discord_user_id (short-lived, fine to keep in memory)
 
 # ---------- DASHBOARD (Components V2) ----------
+class RulesLayout(discord.ui.LayoutView):
+    def __init__(self, intro, items):
+        super().__init__(timeout=None)
+
+        container = discord.ui.Container()
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(DASHBOARD_BANNER_URL)
+        ))
+
+        container.add_item(discord.ui.TextDisplay(intro))
+        container.add_item(discord.ui.Separator())
+
+        for index, item in enumerate(items):
+            container.add_item(discord.ui.TextDisplay(item))
+            if index < len(items) - 1:
+                container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(FOOTER_IMAGE_URL)
+        ))
+
+        self.add_item(container)
+
 class DiscordRulesButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="View", style=discord.ButtonStyle.secondary)
 
     async def callback(self, interaction: discord.Interaction):
-        embed = discord.Embed(description=DISCORD_RULES_TEXT, color=discord.Color.from_rgb(255, 255, 255))
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(
+            view=RulesLayout(DISCORD_RULES_INTRO, DISCORD_RULES_ITEMS),
+            ephemeral=True
+        )
 
 class InGameRulesButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="View", style=discord.ButtonStyle.secondary)
 
     async def callback(self, interaction: discord.Interaction):
-        embed = discord.Embed(description=INGAME_RULES_TEXT, color=discord.Color.from_rgb(255, 255, 255))
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(
+            view=RulesLayout(INGAME_RULES_INTRO, INGAME_RULES_ITEMS),
+            ephemeral=True
+        )
 
 class WhitelistedGroupButton(discord.ui.Button):
     def __init__(self):
