@@ -266,8 +266,8 @@ async def on_ready():
     # reattach persistent session vote buttons after a restart/redeploy
     for row in get_untriggered_session_votes():
         voters = set(int(x) for x in row["voters"].split(",") if x)
-        vote_view = SessionVoteView(row["message_id"], len(voters), row["threshold"])
-        bot.add_view(vote_view, message_id=row["message_id"])
+        vote_layout = SessionVoteLayout(row["message_id"], len(voters), row["threshold"])
+        bot.add_view(vote_layout, message_id=row["message_id"])
 
     if not refresh_session_panel.is_running():
         refresh_session_panel.start()
@@ -635,6 +635,83 @@ async def session_boost(interaction: discord.Interaction):
     await interaction.response.send_message(f"{CUSTOM_EMOJI} **Session Boost!** {role.mention if role else ''}")
 
 # ---------- SESSION VOTE ----------
+class SessionVoteButton(discord.ui.Button):
+    def __init__(self, vote_count=0, threshold=1):
+        super().__init__(
+            label=f"{vote_count}/{threshold}",
+            emoji=CHECK_EMOJI,
+            style=discord.ButtonStyle.success,
+            custom_id="session_vote_button"
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        layout = self.view
+        row = get_session_vote(layout.message_id)
+        if not row:
+            await interaction.response.send_message("This vote is no longer active.", ephemeral=True)
+            return
+
+        if row["triggered"]:
+            await interaction.response.send_message("This vote has already succeeded.", ephemeral=True)
+            return
+
+        threshold = row["threshold"]
+        voters = set(int(x) for x in row["voters"].split(",") if x)
+        user_id = interaction.user.id
+
+        if user_id in voters:
+            voters.discard(user_id)
+        else:
+            voters.add(user_id)
+
+        save_session_vote_voters(layout.message_id, voters)
+
+        self.label = f"{len(voters)}/{threshold}"
+
+        if len(voters) >= threshold:
+            mark_session_vote_triggered(layout.message_id)
+            self.disabled = True
+            set_session_active(True, int(time.time()))
+
+            role = interaction.guild.get_role(SESSION_HOST_ROLE_ID)
+            await interaction.response.edit_message(view=layout)
+            await interaction.channel.send(
+                f"{CUSTOM_EMOJI} **Session Starting!** {role.mention if role else ''}\n"
+                f"The vote passed with {len(voters)} votes.\n"
+                f"Join Code: `{SESSION_JOIN_CODE}`"
+            )
+        else:
+            await interaction.response.edit_message(view=layout)
+
+class SessionVoteLayout(discord.ui.LayoutView):
+    def __init__(self, message_id=None, vote_count=0, threshold=1):
+        super().__init__(timeout=None)
+        self.message_id = message_id
+        self.threshold = threshold
+
+        container = discord.ui.Container()
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(SESSION_BANNER_URL)
+        ))
+
+        container.add_item(discord.ui.Section(
+            discord.ui.TextDisplay(
+                f"{CUSTOM_EMOJI} **Minnesota State Sessions**\n"
+                "> Vote below to help start the next session! Once enough votes are in, "
+                "the session host role will be pinged and the session will kick off."
+            ),
+            accessory=SessionVoteButton(vote_count, threshold)
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(FOOTER_IMAGE_URL)
+        ))
+
+        self.add_item(container)
+
 class SessionVoteThresholdModal(discord.ui.Modal, title="Session Vote"):
     threshold = discord.ui.TextInput(
         label="Votes needed to start the session",
@@ -655,7 +732,6 @@ class SessionVoteThresholdModal(discord.ui.Modal, title="Session Vote"):
             await interaction.response.send_message("Please enter a valid positive number.", ephemeral=True)
             return
 
-        stats_text = await get_current_session_stats_text(interaction.guild)
         state = get_session_state()
         target_channel = interaction.channel
         if state and state["panel_channel_id"]:
@@ -663,74 +739,13 @@ class SessionVoteThresholdModal(discord.ui.Modal, title="Session Vote"):
             if resolved:
                 target_channel = resolved
 
-        vote_text = (
-            f"{CUSTOM_EMOJI} # Minnesota State Sessions\n"
-            "> Vote below to help start the next session! Once enough votes are in, "
-            "the session host role will be pinged and the session will kick off."
-        )
-
-        view = discord.ui.LayoutView(timeout=None)
-        container = discord.ui.Container()
-        container.add_item(discord.ui.MediaGallery(discord.MediaGalleryItem(DASHBOARD_BANNER_URL)))
-        container.add_item(discord.ui.TextDisplay(vote_text))
-        container.add_item(discord.ui.Separator())
-        container.add_item(discord.ui.MediaGallery(discord.MediaGalleryItem(FOOTER_IMAGE_URL)))
-        view.add_item(container)
-
-        message = await target_channel.send(view=view)
+        vote_layout = SessionVoteLayout(threshold=threshold_value)
+        message = await target_channel.send(view=vote_layout)
+        vote_layout.message_id = message.id
 
         create_session_vote(message.id, target_channel.id, threshold_value)
 
-        vote_view = SessionVoteView(message.id, 0, threshold_value)
-        await message.edit(view=vote_view)
-
         await interaction.response.send_message(f"Session vote posted in {target_channel.mention}!", ephemeral=True)
-
-class SessionVoteView(discord.ui.View):
-    def __init__(self, message_id, vote_count=0, threshold=1):
-        super().__init__(timeout=None)
-        self.message_id = message_id
-        self.threshold = threshold
-        self.children[0].label = f"{vote_count}/{threshold}"
-
-    @discord.ui.button(label="0/0", emoji=CHECK_EMOJI, style=discord.ButtonStyle.success, custom_id="session_vote_button")
-    async def vote(self, interaction: discord.Interaction, button: discord.ui.Button):
-        row = get_session_vote(self.message_id)
-        if not row:
-            await interaction.response.send_message("This vote is no longer active.", ephemeral=True)
-            return
-
-        if row["triggered"]:
-            await interaction.response.send_message("This vote has already succeeded.", ephemeral=True)
-            return
-
-        threshold = row["threshold"]
-        voters = set(int(x) for x in row["voters"].split(",") if x)
-        user_id = interaction.user.id
-
-        if user_id in voters:
-            voters.discard(user_id)
-        else:
-            voters.add(user_id)
-
-        save_session_vote_voters(self.message_id, voters)
-
-        button.label = f"{len(voters)}/{threshold}"
-
-        if len(voters) >= threshold:
-            mark_session_vote_triggered(self.message_id)
-            button.disabled = True
-            set_session_active(True, int(time.time()))
-
-            role = interaction.guild.get_role(SESSION_HOST_ROLE_ID)
-            await interaction.response.edit_message(view=self)
-            await interaction.channel.send(
-                f"{CUSTOM_EMOJI} **Session Starting!** {role.mention if role else ''}\n"
-                f"The vote passed with {len(voters)} votes.\n"
-                f"Join Code: `{SESSION_JOIN_CODE}`"
-            )
-        else:
-            await interaction.response.edit_message(view=self)
 
 @bot.tree.command(name="session-vote", description="Start a vote to kick off the next session", guild=GUILD_ID)
 @has_session_host_role()
