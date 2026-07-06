@@ -1121,8 +1121,8 @@ class PriorityApproveButton(discord.ui.Button):
 
         prty_ok = await send_erlc_command(f":prty {request['duration_seconds']}")
         m_ok = await send_erlc_command(
-            f":m A priority by {request['roblox_username']} has requested a priority, "
-            f"please remember to not commit any priority crimes or you will be moderated."
+            f":m {request['roblox_username']} has requested a priority, "
+            f"please remember not to commit any priority crimes or you will be moderated."
         )
 
         warning_text = None
