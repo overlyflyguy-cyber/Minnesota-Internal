@@ -472,6 +472,7 @@ def has_session_host_role():
 async def fetch_erlc_stats():
     """Returns (current_players, max_players, queue_count). Any value is None on failure."""
     if not ERLC_API_KEY:
+        print("[ERLC] ERLC_API_KEY is not set - skipping API calls.")
         return None, None, None
 
     def _fetch():
@@ -483,16 +484,24 @@ async def fetch_erlc_stats():
                 data = r.json()
                 current = data.get("CurrentPlayers")
                 maximum = data.get("MaxPlayers")
-        except Exception:
-            pass
+                if current is None or maximum is None:
+                    print(f"[ERLC] /v1/server responded 200 but missing fields: {data}")
+            else:
+                print(f"[ERLC] /v1/server failed: status={r.status_code} body={r.text[:300]}")
+        except Exception as e:
+            print(f"[ERLC] /v1/server request raised an exception: {e!r}")
         try:
             r = requests.get(ERLC_SERVER_QUEUE_URL, headers=headers, timeout=10)
             if r.ok:
                 queue_list = r.json()
                 if isinstance(queue_list, list):
                     queue = len(queue_list)
-        except Exception:
-            pass
+                else:
+                    print(f"[ERLC] /v1/server/queue responded 200 but wasn't a list: {queue_list}")
+            else:
+                print(f"[ERLC] /v1/server/queue failed: status={r.status_code} body={r.text[:300]}")
+        except Exception as e:
+            print(f"[ERLC] /v1/server/queue request raised an exception: {e!r}")
         return current, maximum, queue
 
     return await bot.loop.run_in_executor(None, _fetch)
