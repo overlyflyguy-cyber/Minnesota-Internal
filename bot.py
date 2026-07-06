@@ -38,6 +38,7 @@ REDIRECT_URI = os.getenv('REDIRECT_URI')  # e.g. https://yourapp.up.railway.app/
 
 # ---------- DASHBOARD CONTENT ----------
 DASHBOARD_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/dashboard%20banner%20(1).png"
+SESSION_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/sessions%20banner.png"
 FOOTER_IMAGE_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/Footer.png"
 WHITELISTED_GROUP_URL = "https://www.roblox.com/communities/594557850/Minnesota-State-Roleplay-VC-Only#!/about"
 
@@ -503,14 +504,14 @@ def build_session_stats_text(current, maximum, queue, online_staff, session_acti
     if session_active and start_time:
         timer_str = f"<t:{int(start_time)}:R>"
     else:
-        timer_str = "No active session"
+        timer_str = "N/A"
 
     return (
         "**Server Stats**\n"
         f"> Player Count: `{player_str}`\n"
         f"> Online Staff: `{online_staff}`\n"
         f"> Server Queue: `{queue_str}`\n\n"
-        f"-# Session has been up since {timer_str}"
+        f"-# Session has been up since {timer_str}."
     )
 
 class SessionPanelLayout(discord.ui.LayoutView):
@@ -520,11 +521,11 @@ class SessionPanelLayout(discord.ui.LayoutView):
         container = discord.ui.Container()
 
         container.add_item(discord.ui.MediaGallery(
-            discord.MediaGalleryItem(DASHBOARD_BANNER_URL)
+            discord.MediaGalleryItem(SESSION_BANNER_URL)
         ))
 
         container.add_item(discord.ui.TextDisplay(
-            f"{CUSTOM_EMOJI} # Minnesota State Sessions\n"
+            f"{CUSTOM_EMOJI} **Minnesota State Sessions**\n"
             "> Our sessions run from the discretion of our session managers, sessions will be "
             "held till the player count drops below 10 players."
         ))
