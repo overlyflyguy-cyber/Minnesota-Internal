@@ -1020,7 +1020,7 @@ class PriorityDenyReasonModal(discord.ui.Modal, title="Deny Priority Request"):
 
         set_priority_request_status(self.message_id, "denied", self.reason.value)
 
-        await send_erlc_command(f":pm {request['roblox_username']} {self.reason.value}")
+        pm_ok = await send_erlc_command(f":pm {request['roblox_username']} {self.reason.value}")
 
         try:
             channel = interaction.guild.get_channel(PRIORITY_REQUESTS_CHANNEL_ID)
@@ -1032,6 +1032,12 @@ class PriorityDenyReasonModal(discord.ui.Modal, title="Deny Priority Request"):
                 value=f"❌ Denied by {interaction.user.mention}\n**Reason:** {self.reason.value}",
                 inline=False
             )
+            if not pm_ok:
+                embed.add_field(
+                    name="⚠️ Warning",
+                    value="The in-game `:pm` command failed to send. Check the bot logs.",
+                    inline=False
+                )
             disabled_view = PriorityRequestView()
             for child in disabled_view.children:
                 child.disabled = True
@@ -1049,7 +1055,14 @@ class PriorityDenyReasonModal(discord.ui.Modal, title="Deny Priority Request"):
             except discord.Forbidden:
                 pass
 
-        await interaction.followup.send("Priority request denied and the requester has been notified.", ephemeral=True)
+        if pm_ok:
+            await interaction.followup.send("Priority request denied and the requester has been notified.", ephemeral=True)
+        else:
+            await interaction.followup.send(
+                "Priority request denied and a Discord DM was sent, but the in-game `:pm` command failed. "
+                "Check `ERLC_API_KEY` and the bot's logs for details.",
+                ephemeral=True
+            )
 
 class PriorityRequestView(discord.ui.View):
     def __init__(self):
@@ -1071,8 +1084,8 @@ class PriorityRequestView(discord.ui.View):
 
         set_priority_request_status(interaction.message.id, "approved")
 
-        await send_erlc_command(f":prty {request['duration_seconds']}")
-        await send_erlc_command(
+        prty_ok = await send_erlc_command(f":prty {request['duration_seconds']}")
+        m_ok = await send_erlc_command(
             f":m A priority by {request['roblox_username']} has requested a priority, "
             f"please remember to not commit any priority crimes or you will be moderated."
         )
@@ -1080,10 +1093,23 @@ class PriorityRequestView(discord.ui.View):
         embed = interaction.message.embeds[0]
         embed.color = discord.Color.green()
         embed.add_field(name="Status", value=f"✅ Approved by {interaction.user.mention}", inline=False)
+        if not prty_ok or not m_ok:
+            embed.add_field(
+                name="⚠️ Warning",
+                value="Approved, but one or more in-game commands (`:prty`/`:m`) failed to send. Check the bot logs.",
+                inline=False
+            )
 
         for child in self.children:
             child.disabled = True
         await interaction.message.edit(embed=embed, view=self)
+
+        if not prty_ok or not m_ok:
+            await interaction.followup.send(
+                "⚠️ Heads up: the request was approved, but the in-game `:prty`/`:m` commands failed to send "
+                "to ERLC. Check `ERLC_API_KEY` and the bot's logs for details.",
+                ephemeral=True
+            )
 
         requester = interaction.guild.get_member(request["requester_discord_id"])
         if requester:
