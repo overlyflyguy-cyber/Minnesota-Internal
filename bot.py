@@ -386,11 +386,11 @@ async def link(interaction: discord.Interaction):
 
     auth_url = (
         "https://apis.roblox.com/oauth/v1/authorize"
-        f"?client_id={ROBLOX_CLIENT_ID}"
-        f"&redirect_uri={REDIRECT_URI}"
+        f"?client_id={quote(ROBLOX_CLIENT_ID or '')}"
+        f"&redirect_uri={quote(REDIRECT_URI or '', safe='')}"
         "&scope=openid+profile"
         "&response_type=code"
-        f"&state={state}"
+        f"&state={quote(state)}"
     )
 
     view = discord.ui.View()
