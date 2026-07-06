@@ -327,7 +327,7 @@ class DashboardLayout(discord.ui.LayoutView):
         ))
 
         container.add_item(discord.ui.TextDisplay(
-            f"{CUSTOM_EMOJI} # Welcome to Minnesota State Roleplay\n"
+            f"# {CUSTOM_EMOJI} Welcome to Minnesota State Roleplay\n"
             "Read the regulations before engaging in our community, join our whitelisted "
             "Roblox group, and tap **Notifications** to choose which pings you'd like to receive."
         ))
