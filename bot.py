@@ -21,6 +21,7 @@ SUGGESTIONS_CHANNEL_ID = 1522486329097850970
 
 WELCOME_CHANNEL_ID = 1522461848098574426
 CHANNEL_LINK = "https://discord.com/channels/1522138994190585916/1522461848098574426"
+DASHBOARD_LINK = "https://discord.com/channels/1522138994190585916/1522459494569738382"
 CUSTOM_EMOJI = "<:Minnesota:1523131744285360232>"
 DASHBOARD_EMOJI = "<:msrp_book:1523379794417287350>"
 CHECK_EMOJI = "<:msrp_check:1523404318835871897>"
@@ -297,7 +298,7 @@ async def on_member_join(member):
             style=discord.ButtonStyle.secondary,
             disabled=True
         ))
-        view.add_item(discord.ui.Button(label="Dashboard", emoji=DASHBOARD_EMOJI, url=CHANNEL_LINK))
+        view.add_item(discord.ui.Button(label="Dashboard", emoji=DASHBOARD_EMOJI, url=DASHBOARD_LINK))
 
         try:
             await channel.send(content=message_text, view=view)
@@ -527,13 +528,20 @@ def build_session_stats_text(current, maximum, queue, online_staff, session_acti
         f"-# Session has been up since {timer_str}."
     )
 
-def build_session_status_line(session_active: bool):
-    dot = "🟢" if session_active else "🔴"
-    status_word = "Online" if session_active else "Offline"
-    return (
-        f"**Status** {dot} `{status_word}`\n"
-        f"-# [Click here to join the in-game server]({INGAME_SERVER_URL})"
-    )
+def build_session_status_row(session_active: bool):
+    row = discord.ui.ActionRow()
+    row.add_item(discord.ui.Button(
+        label=f"Status: {'Online' if session_active else 'Offline'}",
+        emoji="🟢" if session_active else "🔴",
+        style=discord.ButtonStyle.secondary,
+        disabled=True
+    ))
+    row.add_item(discord.ui.Button(
+        label="Game Quick-Join",
+        style=discord.ButtonStyle.link,
+        url=INGAME_SERVER_URL
+    ))
+    return row
 
 class SessionPanelLayout(discord.ui.LayoutView):
     def __init__(self, stats_text, session_active=False):
@@ -569,9 +577,7 @@ class SessionPanelLayout(discord.ui.LayoutView):
             discord.MediaGalleryItem(FOOTER_IMAGE_URL)
         ))
 
-        container.add_item(discord.ui.TextDisplay(
-            build_session_status_line(session_active)
-        ))
+        container.add_item(build_session_status_row(session_active))
 
         self.add_item(container)
 
