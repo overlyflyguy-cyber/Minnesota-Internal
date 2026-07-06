@@ -4,6 +4,7 @@ from discord import app_commands
 import os
 import time
 import re
+import asyncio
 import threading
 import secrets
 import sqlite3
@@ -581,8 +582,9 @@ async def fetch_erlc_stats():
 
     return await bot.loop.run_in_executor(None, _fetch)
 
-async def send_erlc_command(command: str) -> bool:
-    """Runs a remote command on the ERLC private server (e.g. ':prty 1200'). Returns True on success."""
+async def send_erlc_command(command: str, max_retries: int = 3) -> bool:
+    """Runs a remote command on the ERLC private server (e.g. ':prty 1200'). Returns True on success.
+    Automatically waits and retries if ERLC's API rate limits the request (HTTP 429)."""
     if not ERLC_API_KEY:
         print("[ERLC] ERLC_API_KEY is not set - skipping command.")
         return False
@@ -591,15 +593,33 @@ async def send_erlc_command(command: str) -> bool:
         headers = {"server-key": ERLC_API_KEY, "Content-Type": "application/json"}
         try:
             r = requests.post(ERLC_SERVER_COMMAND_URL, headers=headers, json={"command": command}, timeout=10)
-            if r.ok:
-                return True
-            print(f"[ERLC] command '{command}' failed: status={r.status_code} body={r.text[:300]}")
-            return False
+            return r
         except Exception as e:
             print(f"[ERLC] command '{command}' raised an exception: {e!r}")
-            return False
+            return None
 
-    return await bot.loop.run_in_executor(None, _send)
+    for attempt in range(max_retries):
+        r = await bot.loop.run_in_executor(None, _send)
+        if r is None:
+            return False
+        if r.ok:
+            return True
+
+        if r.status_code == 429:
+            retry_after = 5.0
+            try:
+                retry_after = float(r.json().get("retry_after", retry_after))
+            except Exception:
+                pass
+            print(f"[ERLC] command '{command}' rate limited, retrying in {retry_after:.1f}s (attempt {attempt + 1}/{max_retries})")
+            await asyncio.sleep(retry_after + 0.5)  # small buffer on top of what ERLC reports
+            continue
+
+        print(f"[ERLC] command '{command}' failed: status={r.status_code} body={r.text[:300]}")
+        return False
+
+    print(f"[ERLC] command '{command}' failed after {max_retries} attempts due to rate limiting.")
+    return False
 
 DURATION_PATTERN = re.compile(r"^\s*(\d+)\s*(h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)?\s*$", re.IGNORECASE)
 
