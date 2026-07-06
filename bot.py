@@ -1326,6 +1326,18 @@ async def on_message(message):
 # ---------- FLASK WEB SERVER ----------
 app = Flask(__name__)
 
+@app.route('/outbound-ip')
+def outbound_ip():
+    """Temporary helper: reports the IP this server currently makes outbound
+    requests from, so it can be added to ERLC's Allowlisted IPs. Safe to
+    remove once you've noted the IP down, or just leave it - it doesn't
+    expose anything sensitive."""
+    try:
+        resp = requests.get("https://api.ipify.org", timeout=5)
+        return f"Current outbound IP: {resp.text.strip()}"
+    except Exception as e:
+        return f"Could not determine outbound IP: {e}"
+
 @app.route('/callback')
 def callback():
     code = request.args.get('code')
