@@ -336,21 +336,25 @@ class DashboardLayout(discord.ui.LayoutView):
 
         container.add_item(discord.ui.Section(
             discord.ui.TextDisplay(
-                "📖 **Discord Rules**\n-# Conduct and guidelines across our Discord server. Read before posting."
+                "<:rules_book:1523521546851979395> **Discord Rules**\n-# Conduct and guidelines across our Discord server. Read before posting."
             ),
             accessory=DiscordRulesButton()
         ))
 
+        container.add_item(discord.ui.Separator())
+
         container.add_item(discord.ui.Section(
             discord.ui.TextDisplay(
-                "🚓 **In-Game Rules**\n-# Conduct and guidelines within our ER:LC sessions. Read before joining."
+                "<:msrp_car:1523521721456529549> **In-Game Rules**\n-# Conduct and guidelines within our ER:LC sessions. Read before joining."
             ),
             accessory=InGameRulesButton()
         ))
 
+        container.add_item(discord.ui.Separator())
+
         container.add_item(discord.ui.Section(
             discord.ui.TextDisplay(
-                "ℹ️ **Whitelisted Group**\n-# The official Roblox group for Minnesota State Roleplay members. Join to unlock in-game whitelist."
+                "<:msrp_info:1523521993742356541> **Whitelisted Group**\n-# The official Roblox group for Minnesota State Roleplay members. Join to unlock in-game whitelist."
             ),
             accessory=WhitelistedGroupButton()
         ))
