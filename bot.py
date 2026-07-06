@@ -1039,15 +1039,12 @@ def build_priority_container(request, moderator_mention=None, warning_text=None)
 
     if status == "approved":
         header = "# Priority Accepted"
-        accent = discord.Color.green()
     elif status == "denied":
         header = "# Priority Denied"
-        accent = discord.Color.red()
     else:
         header = "# Priority Request"
-        accent = discord.Color.gold()
 
-    container = discord.ui.Container(accent_color=accent)
+    container = discord.ui.Container()
 
     container.add_item(discord.ui.TextDisplay(header))
     container.add_item(discord.ui.Separator())
