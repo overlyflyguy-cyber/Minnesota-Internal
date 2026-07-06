@@ -11,6 +11,7 @@ from flask import Flask, request
 # ---------- CONFIG ----------
 GUILD_ID = discord.Object(id=1522138994190585916)
 ALLOWED_ROLE_ID = 1522449556938428527
+PANEL_ROLE_ID = 1522448853733871787  # required role for /dashboard and future panel-setup commands
 AUTO_ROLE_IDS = [1522459683577790575, 1522837479835570306]
 UNVERIFIED_ROLE_ID = 1522837479835570306
 VERIFIED_ROLE_ID = 1522461264503115898
@@ -335,7 +336,21 @@ class DashboardLayout(discord.ui.LayoutView):
 
 DASHBOARD_POST_CHANNEL_ID = 1522459494569738382
 
+def has_panel_role():
+    async def predicate(interaction: discord.Interaction) -> bool:
+        return any(role.id == PANEL_ROLE_ID for role in interaction.user.roles)
+    return app_commands.check(predicate)
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.CheckFailure):
+        if not interaction.response.is_done():
+            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+    else:
+        raise error
+
 @bot.tree.command(name="dashboard", description="Show the Minnesota State Roleplay dashboard", guild=GUILD_ID)
+@has_panel_role()
 async def dashboard(interaction: discord.Interaction):
     channel = interaction.guild.get_channel(DASHBOARD_POST_CHANNEL_ID)
     if not channel:
