@@ -335,7 +335,8 @@ async def on_ready():
 
     # reattach persistent priority request buttons after a restart/redeploy
     for row in get_pending_priority_requests():
-        bot.add_view(PriorityRequestView(), message_id=row["message_id"])
+        request = get_priority_request(row["message_id"])
+        bot.add_view(PriorityRequestView(request), message_id=row["message_id"])
 
     if not refresh_session_panel.is_running():
         refresh_session_panel.start()
@@ -635,6 +636,20 @@ def parse_duration_to_seconds(text: str):
     if unit.startswith("s"):
         return amount
     return amount * 60  # minutes, or no unit given
+
+def format_duration(seconds):
+    """Turns a number of seconds back into a readable string like '20m' or '1h 5m'."""
+    seconds = int(seconds or 0)
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    parts = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes:
+        parts.append(f"{minutes}m")
+    if secs:
+        parts.append(f"{secs}s")
+    return " ".join(parts) if parts else "0s"
 
 def build_session_stats_text(current, maximum, queue, online_staff, session_active, start_time):
     player_str = f"{current}/{maximum}" if current is not None and maximum is not None else "N/A"
@@ -1017,6 +1032,143 @@ async def suggestion_submit(interaction: discord.Interaction, suggestion: str):
 bot.tree.add_command(suggestion_group)
 
 # ---------- PRIORITY REQUESTS ----------
+def build_priority_container(request, moderator_mention=None, warning_text=None):
+    """Builds the Components V2 container shown for a priority request, in every state
+    (pending / approved / denied)."""
+    status = request["status"] if request else "pending"
+
+    if status == "approved":
+        header = "# Priority Accepted"
+        accent = discord.Color.green()
+    elif status == "denied":
+        header = "# Priority Denied"
+        accent = discord.Color.red()
+    else:
+        header = "# Priority Request"
+        accent = discord.Color.gold()
+
+    container = discord.ui.Container(accent_color=accent)
+
+    container.add_item(discord.ui.TextDisplay(header))
+    container.add_item(discord.ui.Separator())
+
+    duration_text = format_duration(request["duration_seconds"])
+    container.add_item(discord.ui.TextDisplay(
+        f"**Requested by:** <@{request['requester_discord_id']}> ({request['roblox_username']})\n"
+        f"**Location:** {request['location']}\n"
+        f"**Number of People:** {request['people']}\n"
+        f"**Priority Type:** {request['priority_type']}\n"
+        f"**Time Requested:** {duration_text}"
+    ))
+
+    if status == "approved" and moderator_mention:
+        container.add_item(discord.ui.Separator())
+        container.add_item(discord.ui.TextDisplay(f"✅ Approved by {moderator_mention}"))
+    elif status == "denied" and moderator_mention:
+        container.add_item(discord.ui.Separator())
+        container.add_item(discord.ui.TextDisplay(
+            f"❌ Denied by {moderator_mention}\n**Reason:** {request['deny_reason']}"
+        ))
+
+    if warning_text:
+        container.add_item(discord.ui.Separator())
+        container.add_item(discord.ui.TextDisplay(f"⚠️ {warning_text}"))
+
+    if status == "pending":
+        row = discord.ui.ActionRow()
+        row.add_item(PriorityApproveButton())
+        row.add_item(PriorityDenyButton())
+        container.add_item(discord.ui.Separator())
+        container.add_item(row)
+
+    container.add_item(discord.ui.Separator())
+    container.add_item(discord.ui.TextDisplay(f"-# Requester Discord ID: {request['requester_discord_id']}"))
+
+    return container
+
+class PriorityRequestView(discord.ui.LayoutView):
+    def __init__(self, request=None, moderator_mention=None, warning_text=None):
+        super().__init__(timeout=None)
+        if request is None:
+            request = {
+                "requester_discord_id": 0,
+                "roblox_username": "Unknown",
+                "location": "Unknown",
+                "people": "Unknown",
+                "priority_type": "Unknown",
+                "duration_seconds": 0,
+                "status": "pending",
+                "deny_reason": None,
+            }
+        self.add_item(build_priority_container(request, moderator_mention=moderator_mention, warning_text=warning_text))
+
+class PriorityApproveButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Approve", style=discord.ButtonStyle.success, custom_id="priority_approve")
+
+    async def callback(self, interaction: discord.Interaction):
+        role_ids = {role.id for role in interaction.user.roles}
+        if PRIORITY_STAFF_ROLE_ID not in role_ids:
+            await interaction.response.send_message("You don't have permission to approve priority requests.", ephemeral=True)
+            return
+
+        request = get_priority_request(interaction.message.id)
+        if not request or request["status"] != "pending":
+            await interaction.response.send_message("This request has already been handled.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        set_priority_request_status(interaction.message.id, "approved")
+        request = get_priority_request(interaction.message.id)
+
+        prty_ok = await send_erlc_command(f":prty {request['duration_seconds']}")
+        m_ok = await send_erlc_command(
+            f":m A priority by {request['roblox_username']} has requested a priority, "
+            f"please remember to not commit any priority crimes or you will be moderated."
+        )
+
+        warning_text = None
+        if not prty_ok or not m_ok:
+            warning_text = "Approved, but one or more in-game commands (`:prty`/`:m`) failed to send. Check the bot logs."
+
+        new_view = PriorityRequestView(request, moderator_mention=interaction.user.mention, warning_text=warning_text)
+        await interaction.message.edit(view=new_view)
+
+        if warning_text:
+            await interaction.followup.send(
+                "⚠️ Heads up: the request was approved, but the in-game `:prty`/`:m` commands failed to send "
+                "to ERLC. Check `ERLC_API_KEY` and the bot's logs for details.",
+                ephemeral=True
+            )
+
+        requester = interaction.guild.get_member(request["requester_discord_id"])
+        if requester:
+            try:
+                await requester.send(
+                    f"Your priority request for **{request['priority_type']}** at **{request['location']}** "
+                    "has been approved! It's live in-game now."
+                )
+            except discord.Forbidden:
+                pass
+
+class PriorityDenyButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Deny", style=discord.ButtonStyle.danger, custom_id="priority_deny")
+
+    async def callback(self, interaction: discord.Interaction):
+        role_ids = {role.id for role in interaction.user.roles}
+        if PRIORITY_STAFF_ROLE_ID not in role_ids:
+            await interaction.response.send_message("You don't have permission to deny priority requests.", ephemeral=True)
+            return
+
+        request = get_priority_request(interaction.message.id)
+        if not request or request["status"] != "pending":
+            await interaction.response.send_message("This request has already been handled.", ephemeral=True)
+            return
+
+        await interaction.response.send_modal(PriorityDenyReasonModal(interaction.message.id))
+
 class PriorityDenyReasonModal(discord.ui.Modal, title="Deny Priority Request"):
     reason = discord.ui.TextInput(
         label="Reason for denial",
@@ -1039,29 +1191,19 @@ class PriorityDenyReasonModal(discord.ui.Modal, title="Deny Priority Request"):
         await interaction.response.defer(ephemeral=True)
 
         set_priority_request_status(self.message_id, "denied", self.reason.value)
+        request = get_priority_request(self.message_id)
 
         pm_ok = await send_erlc_command(f":pm {request['roblox_username']} {self.reason.value}")
+
+        warning_text = None
+        if not pm_ok:
+            warning_text = "The in-game `:pm` command failed to send. Check the bot logs."
 
         try:
             channel = interaction.guild.get_channel(PRIORITY_REQUESTS_CHANNEL_ID)
             message = await channel.fetch_message(self.message_id)
-            embed = message.embeds[0]
-            embed.color = discord.Color.red()
-            embed.add_field(
-                name="Status",
-                value=f"❌ Denied by {interaction.user.mention}\n**Reason:** {self.reason.value}",
-                inline=False
-            )
-            if not pm_ok:
-                embed.add_field(
-                    name="⚠️ Warning",
-                    value="The in-game `:pm` command failed to send. Check the bot logs.",
-                    inline=False
-                )
-            disabled_view = PriorityRequestView()
-            for child in disabled_view.children:
-                child.disabled = True
-            await message.edit(embed=embed, view=disabled_view)
+            new_view = PriorityRequestView(request, moderator_mention=interaction.user.mention, warning_text=warning_text)
+            await message.edit(view=new_view)
         except (discord.NotFound, discord.Forbidden):
             pass
 
@@ -1083,77 +1225,6 @@ class PriorityDenyReasonModal(discord.ui.Modal, title="Deny Priority Request"):
                 "Check `ERLC_API_KEY` and the bot's logs for details.",
                 ephemeral=True
             )
-
-class PriorityRequestView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @discord.ui.button(label="Approve", style=discord.ButtonStyle.success, custom_id="priority_approve")
-    async def approve(self, interaction: discord.Interaction, button: discord.ui.Button):
-        role_ids = {role.id for role in interaction.user.roles}
-        if PRIORITY_STAFF_ROLE_ID not in role_ids:
-            await interaction.response.send_message("You don't have permission to approve priority requests.", ephemeral=True)
-            return
-
-        request = get_priority_request(interaction.message.id)
-        if not request or request["status"] != "pending":
-            await interaction.response.send_message("This request has already been handled.", ephemeral=True)
-            return
-
-        await interaction.response.defer()
-
-        set_priority_request_status(interaction.message.id, "approved")
-
-        prty_ok = await send_erlc_command(f":prty {request['duration_seconds']}")
-        m_ok = await send_erlc_command(
-            f":m A priority by {request['roblox_username']} has requested a priority, "
-            f"please remember to not commit any priority crimes or you will be moderated."
-        )
-
-        embed = interaction.message.embeds[0]
-        embed.color = discord.Color.green()
-        embed.add_field(name="Status", value=f"✅ Approved by {interaction.user.mention}", inline=False)
-        if not prty_ok or not m_ok:
-            embed.add_field(
-                name="⚠️ Warning",
-                value="Approved, but one or more in-game commands (`:prty`/`:m`) failed to send. Check the bot logs.",
-                inline=False
-            )
-
-        for child in self.children:
-            child.disabled = True
-        await interaction.message.edit(embed=embed, view=self)
-
-        if not prty_ok or not m_ok:
-            await interaction.followup.send(
-                "⚠️ Heads up: the request was approved, but the in-game `:prty`/`:m` commands failed to send "
-                "to ERLC. Check `ERLC_API_KEY` and the bot's logs for details.",
-                ephemeral=True
-            )
-
-        requester = interaction.guild.get_member(request["requester_discord_id"])
-        if requester:
-            try:
-                await requester.send(
-                    f"Your priority request for **{request['priority_type']}** at **{request['location']}** "
-                    "has been approved! It's live in-game now."
-                )
-            except discord.Forbidden:
-                pass
-
-    @discord.ui.button(label="Deny", style=discord.ButtonStyle.danger, custom_id="priority_deny")
-    async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
-        role_ids = {role.id for role in interaction.user.roles}
-        if PRIORITY_STAFF_ROLE_ID not in role_ids:
-            await interaction.response.send_message("You don't have permission to deny priority requests.", ephemeral=True)
-            return
-
-        request = get_priority_request(interaction.message.id)
-        if not request or request["status"] != "pending":
-            await interaction.response.send_message("This request has already been handled.", ephemeral=True)
-            return
-
-        await interaction.response.send_modal(PriorityDenyReasonModal(interaction.message.id))
 
 class PriorityRequestModal(discord.ui.Modal, title="Priority Request"):
     location = discord.ui.TextInput(
@@ -1198,16 +1269,19 @@ class PriorityRequestModal(discord.ui.Modal, title="Priority Request"):
             await interaction.response.send_message("Priority requests channel not found. Contact an admin.", ephemeral=True)
             return
 
-        embed = discord.Embed(title="🚨 Priority Request", color=discord.Color.gold())
-        embed.add_field(name="Requested by", value=f"{interaction.user.mention} ({self.roblox_username})", inline=False)
-        embed.add_field(name="Location", value=self.location.value, inline=True)
-        embed.add_field(name="Number of People", value=self.people.value, inline=True)
-        embed.add_field(name="Priority Type", value=self.priority_type.value, inline=True)
-        embed.add_field(name="Time Requested", value=self.duration.value, inline=True)
-        embed.set_footer(text=f"Requester Discord ID: {interaction.user.id}")
+        request_data = {
+            "requester_discord_id": interaction.user.id,
+            "roblox_username": self.roblox_username,
+            "location": self.location.value,
+            "people": self.people.value,
+            "priority_type": self.priority_type.value,
+            "duration_seconds": duration_seconds,
+            "status": "pending",
+            "deny_reason": None,
+        }
 
-        view = PriorityRequestView()
-        message = await channel.send(embed=embed, view=view)
+        view = PriorityRequestView(request_data)
+        message = await channel.send(view=view)
 
         create_priority_request(
             message.id,
