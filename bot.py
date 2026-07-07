@@ -684,6 +684,10 @@ LAW_ENFORCEMENT_INFO = (
 
 PLACEHOLDER_INFO = "Adding more info soon."
 
+JURISDICTION_MAP_INFO = "Below is a map of the departments jurisdiction. If you do not abide by the set jurisdiction, you will face moderation."
+# Pinned to a specific commit so this keeps working even if the file or branch changes later
+JURISDICTION_MAP_IMAGE_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/1e5937df269976284bebedc978e1fe23e0c1dbaf/jd%20map%20msrp.png"
+
 class JurisdictionMapLayout(discord.ui.LayoutView):
     def __init__(self):
         super().__init__(timeout=None)
@@ -698,9 +702,13 @@ class JurisdictionMapLayout(discord.ui.LayoutView):
             f"# {JURISDICTION_MAP_EMOJI} Jurisdiction Map"
         ))
 
+        container.add_item(discord.ui.TextDisplay(JURISDICTION_MAP_INFO))
+
         container.add_item(discord.ui.Separator())
 
-        container.add_item(discord.ui.TextDisplay(PLACEHOLDER_INFO))
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(JURISDICTION_MAP_IMAGE_URL)
+        ))
 
         container.add_item(discord.ui.Separator())
 
