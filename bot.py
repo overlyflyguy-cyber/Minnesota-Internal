@@ -1308,6 +1308,50 @@ async def priority_request(interaction: discord.Interaction):
 
 bot.tree.add_command(priority_group)
 
+# ---------- STAFF REQUESTS ----------
+STAFF_REQUEST_ROLE_ID = 1522459104885346325  # role pinged, and the only role allowed to use /staff-request
+STAFF_REQUEST_CHANNEL_ID = 1523849266584489984
+
+def has_staff_request_role():
+    async def predicate(interaction: discord.Interaction) -> bool:
+        return any(role.id == STAFF_REQUEST_ROLE_ID for role in interaction.user.roles)
+    return app_commands.check(predicate)
+
+class StaffRequestModal(discord.ui.Modal, title="Staff Request"):
+    reason = discord.ui.TextInput(
+        label="Reason",
+        style=discord.TextStyle.paragraph,
+        placeholder="e.g. Need backup handling a scene at the bank",
+        required=True,
+        max_length=300
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        channel = interaction.guild.get_channel(STAFF_REQUEST_CHANNEL_ID)
+        if not channel:
+            await interaction.response.send_message("Staff request channel not found. Contact an admin.", ephemeral=True)
+            return
+
+        container = discord.ui.Container()
+        container.add_item(discord.ui.TextDisplay(f"# Staff Request <@&{STAFF_REQUEST_ROLE_ID}>"))
+        container.add_item(discord.ui.Separator())
+        container.add_item(discord.ui.TextDisplay(
+            f"**Requested by:** {interaction.user.mention}\n"
+            f"**Reason:** {self.reason.value}"
+        ))
+
+        view = discord.ui.LayoutView(timeout=None)
+        view.add_item(container)
+
+        await channel.send(view=view)
+
+        await interaction.response.send_message(f"Staff request sent in {channel.mention}!", ephemeral=True)
+
+@bot.tree.command(name="staff-request", description="Request staff assistance", guild=GUILD_ID)
+@has_staff_request_role()
+async def staff_request(interaction: discord.Interaction):
+    await interaction.response.send_modal(StaffRequestModal())
+
 @bot.event
 async def on_message(message):
     if message.author.bot:
