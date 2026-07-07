@@ -52,6 +52,7 @@ DASHBOARD_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Min
 SESSION_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/sessions%20banner.png"
 FOOTER_IMAGE_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/Footer.png"
 DEPARTMENTS_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/departments%20banner.png"
+DEPARTMENT_INFO_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/department%20info.png"
 WHITELISTED_GROUP_URL = "https://www.roblox.com/communities/594557850/Minnesota-State-Roleplay-VC-Only#!/about"
 
 DISCORD_RULES_INTRO = (
@@ -624,6 +625,93 @@ async def departments(interaction: discord.Interaction):
 
     await channel.send(view=DepartmentsLayout())
     await interaction.response.send_message(f"Departments panel posted in {channel.mention}!", ephemeral=True)
+
+# ---------- DEPARTMENT INFO ----------
+DEPARTMENT_INFO_CHANNEL_ID = 1522463171590361159
+LAW_ENFORCEMENT_EMOJI = "<:Siren:1523890109877981274>"
+
+LAW_ENFORCEMENT_INFO = (
+    "Info on law enforcement, I will edit more soon."
+)
+
+class LawEnforcementInfoLayout(discord.ui.LayoutView):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+        container = discord.ui.Container()
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(DEPARTMENT_INFO_BANNER_URL)
+        ))
+
+        container.add_item(discord.ui.TextDisplay(
+            f"# {LAW_ENFORCEMENT_EMOJI} Law Enforcement"
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.TextDisplay(LAW_ENFORCEMENT_INFO))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(FOOTER_IMAGE_URL)
+        ))
+
+        self.add_item(container)
+
+class LawEnforcementButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Law Enforcement", emoji=LAW_ENFORCEMENT_EMOJI, style=discord.ButtonStyle.secondary)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message(view=LawEnforcementInfoLayout(), ephemeral=True)
+
+class DepartmentInfoLayout(discord.ui.LayoutView):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+        container = discord.ui.Container()
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(DEPARTMENT_INFO_BANNER_URL)
+        ))
+
+        container.add_item(discord.ui.TextDisplay(
+            f"# {CUSTOM_EMOJI} Department Info"
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.TextDisplay(
+            "Below you can find info regarding each type of roleplay team. Please remember you must "
+            "be whitelisted for the Sheriff and State Patrol team."
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        row = discord.ui.ActionRow()
+        row.add_item(LawEnforcementButton())
+        container.add_item(row)
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(FOOTER_IMAGE_URL)
+        ))
+
+        self.add_item(container)
+
+@bot.tree.command(name="department-info", description="Show the Department Info panel", guild=GUILD_ID)
+@has_panel_role()
+async def department_info(interaction: discord.Interaction):
+    channel = interaction.guild.get_channel(DEPARTMENT_INFO_CHANNEL_ID)
+    if not channel:
+        await interaction.response.send_message("Department info channel not found. Contact an admin.", ephemeral=True)
+        return
+
+    await channel.send(view=DepartmentInfoLayout())
+    await interaction.response.send_message(f"Department info panel posted in {channel.mention}!", ephemeral=True)
 
 # ---------- SESSIONS ----------
 SESSION_JOIN_CODE = "msrpvconly"
