@@ -175,6 +175,12 @@ def get_linked_account(discord_id):
     conn.close()
     return row
 
+def delete_linked_account(discord_id):
+    conn = get_db()
+    conn.execute("DELETE FROM linked_accounts WHERE discord_id = ?", (discord_id,))
+    conn.commit()
+    conn.close()
+
 def create_priority_request(message_id, requester_discord_id, roblox_username, location, people, priority_type, duration_seconds):
     conn = get_db()
     conn.execute(
@@ -406,6 +412,39 @@ async def link(interaction: discord.Interaction):
     await interaction.response.send_message("Click below to link your Roblox account:", view=view, ephemeral=True)
 
 pending_links = {}  # state -> discord_user_id (short-lived, fine to keep in memory)
+
+@bot.tree.command(name="unlink", description="Unlink a member's Roblox account", guild=GUILD_ID)
+@app_commands.describe(member="The Discord member to unlink")
+async def unlink(interaction: discord.Interaction, member: discord.Member):
+    user_role_ids = [role.id for role in interaction.user.roles]
+    if ALLOWED_ROLE_ID not in user_role_ids:
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    linked = get_linked_account(member.id)
+    if not linked:
+        await interaction.response.send_message(f"{member.mention} isn't linked to a Roblox account.", ephemeral=True)
+        return
+
+    delete_linked_account(member.id)
+
+    try:
+        verified_role = interaction.guild.get_role(VERIFIED_ROLE_ID)
+        unverified_role = interaction.guild.get_role(UNVERIFIED_ROLE_ID)
+        if verified_role and verified_role in member.roles:
+            await member.remove_roles(verified_role)
+        if unverified_role and unverified_role not in member.roles:
+            await member.add_roles(unverified_role)
+        await member.edit(nick=None)
+    except discord.Forbidden:
+        pass
+
+    try:
+        await member.send("Your Roblox account has been unlinked by staff. Use `/link` or the verification panel to link again.")
+    except discord.Forbidden:
+        pass
+
+    await interaction.response.send_message(f"Unlinked {member.mention} from **{linked['roblox_username']}**.", ephemeral=True)
 
 # ---------- GLOBAL VERIFY PANEL ----------
 # Pinned to a specific commit so these keep working even if the files or branch change later
