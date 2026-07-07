@@ -629,10 +629,81 @@ async def departments(interaction: discord.Interaction):
 # ---------- DEPARTMENT INFO ----------
 DEPARTMENT_INFO_CHANNEL_ID = 1522463171590361159
 LAW_ENFORCEMENT_EMOJI = "<:Siren:1523890109877981274>"
+JURISDICTION_MAP_EMOJI = "<:msrp_pin:1523896439950803034>"
+TEN_CODES_EMOJI = "<:msrp_info:1523521993742356541>"
 
 LAW_ENFORCEMENT_INFO = (
-    "Info on law enforcement, I will edit more soon."
+    "Below you can find the following, a jurisdiction map and 10 codes. If you are within the Sheriff "
+    "team in game, you must be whitelisted, you can apply within a departments server."
 )
+
+PLACEHOLDER_INFO = "Adding more info soon."
+
+class JurisdictionMapLayout(discord.ui.LayoutView):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+        container = discord.ui.Container()
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(DEPARTMENT_INFO_BANNER_URL)
+        ))
+
+        container.add_item(discord.ui.TextDisplay(
+            f"# {JURISDICTION_MAP_EMOJI} Jurisdiction Map"
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.TextDisplay(PLACEHOLDER_INFO))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(FOOTER_IMAGE_URL)
+        ))
+
+        self.add_item(container)
+
+class TenCodesLayout(discord.ui.LayoutView):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+        container = discord.ui.Container()
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(DEPARTMENT_INFO_BANNER_URL)
+        ))
+
+        container.add_item(discord.ui.TextDisplay(
+            f"# {TEN_CODES_EMOJI} 10 Codes"
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.TextDisplay(PLACEHOLDER_INFO))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(FOOTER_IMAGE_URL)
+        ))
+
+        self.add_item(container)
+
+class JurisdictionMapButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Jurisdiction Map", emoji=JURISDICTION_MAP_EMOJI, style=discord.ButtonStyle.secondary)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message(view=JurisdictionMapLayout(), ephemeral=True)
+
+class TenCodesButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="10 Codes", emoji=TEN_CODES_EMOJI, style=discord.ButtonStyle.secondary)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message(view=TenCodesLayout(), ephemeral=True)
 
 class LawEnforcementInfoLayout(discord.ui.LayoutView):
     def __init__(self):
@@ -651,6 +722,13 @@ class LawEnforcementInfoLayout(discord.ui.LayoutView):
         container.add_item(discord.ui.Separator())
 
         container.add_item(discord.ui.TextDisplay(LAW_ENFORCEMENT_INFO))
+
+        container.add_item(discord.ui.Separator())
+
+        row = discord.ui.ActionRow()
+        row.add_item(JurisdictionMapButton())
+        row.add_item(TenCodesButton())
+        container.add_item(row)
 
         container.add_item(discord.ui.Separator())
 
