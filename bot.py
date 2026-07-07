@@ -43,6 +43,10 @@ ERLC_SERVER_COMMAND_URL = "https://api.erlc.gg/v1/server/command"
 PRIORITY_REQUESTS_CHANNEL_ID = 1523804808639938600
 PRIORITY_STAFF_ROLE_ID = ALLOWED_ROLE_ID  # role allowed to approve/deny priority requests - change if you want a dedicated role
 
+# ---------- TICKETS ----------
+TICKET_SUPPORT_ROLE_ID = 1522456567893725224  # role that can see, claim, and close tickets
+TICKET_PANEL_CHANNEL_ID = 1522459658684600452  # channel the ticket panel gets posted in
+
 ROBLOX_CLIENT_ID = os.getenv('ROBLOX_CLIENT_ID')
 ROBLOX_CLIENT_SECRET = os.getenv('ROBLOX_CLIENT_SECRET')
 REDIRECT_URI = os.getenv('REDIRECT_URI')  # e.g. https://yourapp.up.railway.app/callback
@@ -155,6 +159,14 @@ def init_db():
             deny_reason TEXT
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tickets (
+            channel_id INTEGER PRIMARY KEY,
+            opener_discord_id INTEGER,
+            status TEXT DEFAULT 'open',
+            claimed_by INTEGER
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -210,6 +222,48 @@ def set_priority_request_status(message_id, status, deny_reason=None):
 def get_pending_priority_requests():
     conn = get_db()
     rows = conn.execute("SELECT message_id FROM priority_requests WHERE status = 'pending'").fetchall()
+    conn.close()
+    return rows
+
+# ---------- TICKETS ----------
+def create_ticket(channel_id, opener_discord_id):
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO tickets (channel_id, opener_discord_id, status) VALUES (?, ?, 'open')",
+        (channel_id, opener_discord_id)
+    )
+    conn.commit()
+    conn.close()
+
+def get_ticket(channel_id):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM tickets WHERE channel_id = ?", (channel_id,)).fetchone()
+    conn.close()
+    return row
+
+def get_open_ticket_for_user(opener_discord_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM tickets WHERE opener_discord_id = ? AND status = 'open'", (opener_discord_id,)
+    ).fetchone()
+    conn.close()
+    return row
+
+def set_ticket_claimed(channel_id, claimed_by):
+    conn = get_db()
+    conn.execute("UPDATE tickets SET claimed_by = ? WHERE channel_id = ?", (claimed_by, channel_id))
+    conn.commit()
+    conn.close()
+
+def close_ticket(channel_id):
+    conn = get_db()
+    conn.execute("UPDATE tickets SET status = 'closed' WHERE channel_id = ?", (channel_id,))
+    conn.commit()
+    conn.close()
+
+def get_open_tickets():
+    conn = get_db()
+    rows = conn.execute("SELECT channel_id FROM tickets WHERE status = 'open'").fetchall()
     conn.close()
     return rows
 
@@ -348,6 +402,10 @@ async def on_ready():
 
     # reattach the global verify panel button (no message_id needed - it's stateless/reusable)
     bot.add_view(VerifyPanelView())
+
+    # reattach the ticket panel and per-ticket control buttons (both stateless/reusable by custom_id)
+    bot.add_view(TicketPanelView())
+    bot.add_view(TicketControlsView())
 
     if not refresh_session_panel.is_running():
         refresh_session_panel.start()
@@ -1755,6 +1813,167 @@ async def on_message(message):
                 pass
 
     await bot.process_commands(message)
+
+# ---------- TICKETS ----------
+MAILBOX_EMOJI = "<:msrp_mailbox:1523916205789020291>"
+
+# Pinned to a specific commit so these keep working even if the files or branch change later
+ASSISTANCE_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/c49a9dd171bc0fb8c4fe7274df72b4fe662cae77/Assistance%20banner.png"
+ASSISTANCE_FOOTER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/c49a9dd171bc0fb8c4fe7274df72b4fe662cae77/Footer.png"
+
+TICKET_PANEL_TEXT = "Need help with something? Click the button below to open a private ticket with our staff team."
+
+def has_ticket_support_role(member: discord.Member) -> bool:
+    return any(role.id == TICKET_SUPPORT_ROLE_ID for role in member.roles)
+
+class OpenTicketButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Open Ticket", style=discord.ButtonStyle.success, custom_id="ticket_panel:open")
+
+    async def callback(self, interaction: discord.Interaction):
+        existing = get_open_ticket_for_user(interaction.user.id)
+        if existing:
+            channel = interaction.guild.get_channel(existing["channel_id"])
+            if channel:
+                await interaction.response.send_message(f"You already have an open ticket: {channel.mention}", ephemeral=True)
+                return
+
+        await interaction.response.defer(ephemeral=True)
+
+        support_role = interaction.guild.get_role(TICKET_SUPPORT_ROLE_ID)
+        overwrites = {
+            interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+            interaction.guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+        }
+        if support_role:
+            overwrites[support_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+
+        category = interaction.channel.category if interaction.channel else None
+        safe_name = re.sub(r'[^a-z0-9-]', '', interaction.user.name.lower().replace(' ', '-'))[:20] or "user"
+
+        try:
+            ticket_channel = await interaction.guild.create_text_channel(
+                name=f"ticket-{safe_name}",
+                category=category,
+                overwrites=overwrites,
+                reason=f"Ticket opened by {interaction.user}"
+            )
+        except discord.Forbidden:
+            await interaction.followup.send("I don't have permission to create ticket channels. Contact an admin.", ephemeral=True)
+            return
+
+        create_ticket(ticket_channel.id, interaction.user.id)
+
+        mention = f"<@&{TICKET_SUPPORT_ROLE_ID}>" if support_role else ""
+        await ticket_channel.send(content=f"{interaction.user.mention} {mention}", view=TicketControlsView())
+
+        await interaction.followup.send(f"Your ticket has been created: {ticket_channel.mention}", ephemeral=True)
+
+class ClaimTicketButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Claim", style=discord.ButtonStyle.primary, custom_id="ticket_panel:claim")
+
+    async def callback(self, interaction: discord.Interaction):
+        if not has_ticket_support_role(interaction.user):
+            await interaction.response.send_message("You don't have permission to claim tickets.", ephemeral=True)
+            return
+
+        ticket = get_ticket(interaction.channel.id)
+        if not ticket or ticket["status"] != "open":
+            await interaction.response.send_message("This ticket isn't open.", ephemeral=True)
+            return
+
+        set_ticket_claimed(interaction.channel.id, interaction.user.id)
+        await interaction.response.send_message(f"🎟️ Ticket claimed by {interaction.user.mention}.")
+
+class CloseTicketButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Close Ticket", style=discord.ButtonStyle.danger, custom_id="ticket_panel:close")
+
+    async def callback(self, interaction: discord.Interaction):
+        ticket = get_ticket(interaction.channel.id)
+        if not ticket:
+            await interaction.response.send_message("This isn't a ticket channel.", ephemeral=True)
+            return
+
+        if ticket["status"] == "closed":
+            await interaction.response.send_message("This ticket is already closed.", ephemeral=True)
+            return
+
+        is_support = has_ticket_support_role(interaction.user)
+        is_opener = interaction.user.id == ticket["opener_discord_id"]
+        if not (is_support or is_opener):
+            await interaction.response.send_message("You don't have permission to close this ticket.", ephemeral=True)
+            return
+
+        close_ticket(interaction.channel.id)
+        await interaction.response.send_message("🔒 This ticket has been closed. This channel will be deleted in 10 seconds.")
+        await asyncio.sleep(10)
+        try:
+            await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
+        except discord.Forbidden:
+            pass
+
+class TicketControlsView(discord.ui.LayoutView):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+        container = discord.ui.Container()
+        container.add_item(discord.ui.TextDisplay(
+            f"# {MAILBOX_EMOJI} Assistance Ticket\n"
+            "-# A member of staff will be with you shortly. Please describe your issue below."
+        ))
+
+        row = discord.ui.ActionRow()
+        row.add_item(ClaimTicketButton())
+        row.add_item(CloseTicketButton())
+        container.add_item(row)
+
+        self.add_item(container)
+
+class TicketPanelView(discord.ui.LayoutView):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+        container = discord.ui.Container()
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(ASSISTANCE_BANNER_URL)
+        ))
+
+        container.add_item(discord.ui.TextDisplay(
+            f"# {MAILBOX_EMOJI} Assistance"
+        ))
+
+        container.add_item(discord.ui.TextDisplay(TICKET_PANEL_TEXT))
+
+        row = discord.ui.ActionRow()
+        row.add_item(OpenTicketButton())
+        container.add_item(row)
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(ASSISTANCE_FOOTER_URL)
+        ))
+
+        self.add_item(container)
+
+@bot.tree.command(name="ticket-panel", description="Post the assistance ticket panel", guild=GUILD_ID)
+async def ticket_panel(interaction: discord.Interaction):
+    user_role_ids = [role.id for role in interaction.user.roles]
+    if PANEL_ROLE_ID not in user_role_ids:
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    channel = interaction.guild.get_channel(TICKET_PANEL_CHANNEL_ID)
+    if not channel:
+        await interaction.response.send_message("Ticket panel channel not found.", ephemeral=True)
+        return
+
+    await channel.send(view=TicketPanelView())
+    await interaction.response.send_message(f"Ticket panel posted in {channel.mention}!", ephemeral=True)
 
 # ---------- FLASK WEB SERVER ----------
 app = Flask(__name__)
