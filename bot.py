@@ -340,6 +340,9 @@ async def on_ready():
         request = get_priority_request(row["message_id"])
         bot.add_view(PriorityRequestView(request), message_id=row["message_id"])
 
+    # reattach the global verify panel button (no message_id needed - it's stateless/reusable)
+    bot.add_view(VerifyPanelView())
+
     if not refresh_session_panel.is_running():
         refresh_session_panel.start()
 
@@ -383,12 +386,10 @@ async def say(interaction: discord.Interaction, message: str, channel: discord.T
     await channel.send(message)
     await interaction.response.send_message(f"Message sent in {channel.mention}!", ephemeral=True)
 
-@bot.tree.command(name="link", description="Link your Roblox account to Discord", guild=GUILD_ID)
-async def link(interaction: discord.Interaction):
+def build_roblox_auth_url(discord_user_id: int) -> str:
     state = secrets.token_urlsafe(16)
-    pending_links[state] = interaction.user.id
-
-    auth_url = (
+    pending_links[state] = discord_user_id
+    return (
         "https://apis.roblox.com/oauth/v1/authorize"
         f"?client_id={quote(ROBLOX_CLIENT_ID or '')}"
         f"&redirect_uri={quote(REDIRECT_URI or '', safe='')}"
@@ -397,11 +398,55 @@ async def link(interaction: discord.Interaction):
         f"&state={quote(state)}"
     )
 
+@bot.tree.command(name="link", description="Link your Roblox account to Discord", guild=GUILD_ID)
+async def link(interaction: discord.Interaction):
+    auth_url = build_roblox_auth_url(interaction.user.id)
     view = discord.ui.View()
     view.add_item(discord.ui.Button(label="Link Roblox Account", url=auth_url))
     await interaction.response.send_message("Click below to link your Roblox account:", view=view, ephemeral=True)
 
 pending_links = {}  # state -> discord_user_id (short-lived, fine to keep in memory)
+
+# ---------- GLOBAL VERIFY PANEL ----------
+# A single persistent message with a button that ANY member can click. Each click
+# generates a fresh auth link scoped to that specific clicker (via build_roblox_auth_url),
+# so multiple people can safely use the same posted panel/message without colliding.
+class VerifyPanelView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Verify", style=discord.ButtonStyle.success, custom_id="verify_panel:verify")
+    async def verify_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        linked = get_linked_account(interaction.user.id)
+        if linked and linked["roblox_username"]:
+            await interaction.response.send_message(
+                f"You're already verified as **{linked['roblox_username']}**!",
+                ephemeral=True
+            )
+            return
+
+        auth_url = build_roblox_auth_url(interaction.user.id)
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(label="Link Roblox Account", url=auth_url))
+        await interaction.response.send_message(
+            "Click below to link your Roblox account and get verified:",
+            view=view,
+            ephemeral=True
+        )
+
+@bot.tree.command(name="verify-panel", description="Post the global verification panel in this channel", guild=GUILD_ID)
+async def verify_panel(interaction: discord.Interaction):
+    user_role_ids = [role.id for role in interaction.user.roles]
+    if PANEL_ROLE_ID not in user_role_ids:
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title=f"{CHECK_EMOJI} Verification",
+        description="Click the button below to link your Roblox account. Once linked, your nickname and roles will update automatically and you'll get a DM confirming it."
+    )
+    await interaction.channel.send(embed=embed, view=VerifyPanelView())
+    await interaction.response.send_message(f"Verification panel posted in {interaction.channel.mention}!", ephemeral=True)
 
 # ---------- DASHBOARD (Components V2) ----------
 class RulesLayout(discord.ui.LayoutView):
