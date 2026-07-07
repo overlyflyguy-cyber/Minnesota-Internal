@@ -1336,8 +1336,9 @@ class StaffRequestModal(discord.ui.Modal, title="Staff Request"):
         container.add_item(discord.ui.TextDisplay(f"# Staff Request <@&{STAFF_REQUEST_ROLE_ID}>"))
         container.add_item(discord.ui.Separator())
         container.add_item(discord.ui.TextDisplay(
-            f"**Requested by:** {interaction.user.mention}\n"
-            f"**Reason:** {self.reason.value}"
+            f"-# Requested by: {interaction.user.mention}\n"
+            f"-# Reason: {self.reason.value}\n"
+            "-# Staff are needed if you are available in-game, please respond and assist."
         ))
 
         view = discord.ui.LayoutView(timeout=None)
