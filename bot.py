@@ -51,6 +51,7 @@ REDIRECT_URI = os.getenv('REDIRECT_URI')  # e.g. https://yourapp.up.railway.app/
 DASHBOARD_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/dashboard%20banner%20(1).png"
 SESSION_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/sessions%20banner.png"
 FOOTER_IMAGE_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/Footer.png"
+DEPARTMENTS_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/main/departments%20banner.png"
 WHITELISTED_GROUP_URL = "https://www.roblox.com/communities/594557850/Minnesota-State-Roleplay-VC-Only#!/about"
 
 DISCORD_RULES_INTRO = (
@@ -528,6 +529,101 @@ async def dashboard(interaction: discord.Interaction):
 
     await channel.send(view=DashboardLayout())
     await interaction.response.send_message(f"Dashboard posted in {channel.mention}!", ephemeral=True)
+
+# ---------- DEPARTMENTS ----------
+DEPARTMENTS_CHANNEL_ID = 1522460841184591893
+
+MSP_EMOJI = "<:MSP:1523874704786460672>"
+HCSO_EMOJI = "<:HCSO:1523874734981517522>"
+MFD_EMOJI = "<:MFD:1523877244118892665>"
+MDOT_EMOJI = "<:MDOT:1523875781334401214>"
+
+MSP_INVITE_URL = "https://discord.gg/7YvtQHtw4"
+HCSO_INVITE_URL = "https://discord.gg/66rq9mMF6"
+MFD_INVITE_URL = "https://discord.gg/w4ewuUPUz"
+MDOT_INVITE_URL = "https://discord.gg/VSc5NVUyy"
+
+class DepartmentsLayout(discord.ui.LayoutView):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+        container = discord.ui.Container()
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(DEPARTMENTS_BANNER_URL)
+        ))
+
+        container.add_item(discord.ui.TextDisplay(
+            f"# {CUSTOM_EMOJI} Minnesota Departments"
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.TextDisplay(
+            "> Here we offer multiple immersive, realistic departments. Which if you are interested "
+            "in joining or applying, you can do both below. If you have any reports regarding a "
+            "department head, make a ticket within MSRP."
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.TextDisplay("**Primary Departments**"))
+
+        primary_row = discord.ui.ActionRow()
+        primary_row.add_item(discord.ui.Button(
+            label="Minnesota State Patrol",
+            emoji=MSP_EMOJI,
+            url=MSP_INVITE_URL
+        ))
+        primary_row.add_item(discord.ui.Button(
+            label="Hennepin County Sheriff's Office",
+            emoji=HCSO_EMOJI,
+            url=HCSO_INVITE_URL
+        ))
+        container.add_item(primary_row)
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.TextDisplay("**Auxiliary Departments**"))
+
+        auxiliary_row = discord.ui.ActionRow()
+        auxiliary_row.add_item(discord.ui.Button(
+            label="Minneapolis Fire Department",
+            emoji=MFD_EMOJI,
+            url=MFD_INVITE_URL
+        ))
+        auxiliary_row.add_item(discord.ui.Button(
+            label="Minnesota Department of Transportation",
+            emoji=MDOT_EMOJI,
+            url=MDOT_INVITE_URL
+        ))
+        container.add_item(auxiliary_row)
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.TextDisplay(
+            "-# You can be in a max of one primary and one auxiliary departments or two auxiliary "
+            "departments. More departments are to be added as we grow."
+        ))
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(FOOTER_IMAGE_URL)
+        ))
+
+        self.add_item(container)
+
+@bot.tree.command(name="departments", description="Show the Minnesota Departments panel", guild=GUILD_ID)
+@has_panel_role()
+async def departments(interaction: discord.Interaction):
+    channel = interaction.guild.get_channel(DEPARTMENTS_CHANNEL_ID)
+    if not channel:
+        await interaction.response.send_message("Departments channel not found. Contact an admin.", ephemeral=True)
+        return
+
+    await channel.send(view=DepartmentsLayout())
+    await interaction.response.send_message(f"Departments panel posted in {channel.mention}!", ephemeral=True)
 
 # ---------- SESSIONS ----------
 SESSION_JOIN_CODE = "msrpvconly"
