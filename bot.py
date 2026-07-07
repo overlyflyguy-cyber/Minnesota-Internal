@@ -408,15 +408,51 @@ async def link(interaction: discord.Interaction):
 pending_links = {}  # state -> discord_user_id (short-lived, fine to keep in memory)
 
 # ---------- GLOBAL VERIFY PANEL ----------
+# Pinned to a specific commit so these keep working even if the files or branch change later
+VERIFY_BANNER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/12652fcb3a76fb1601d37b85a6be77a0ff7ae6f4/Verification%20banner.png"
+VERIFY_FOOTER_URL = "https://raw.githubusercontent.com/overlyflyguy-cyber/Minnesota-Internal/12652fcb3a76fb1601d37b85a6be77a0ff7ae6f4/Footer.png"
+
+VERIFY_PANEL_TEXT = (
+    "Press the button below to verify, once you verify you will unlock all the channels and "
+    "voice channels. If you do not verify you cannot roleplay as you cannot join any VCs."
+)
+
 # A single persistent message with a button that ANY member can click. Each click
 # generates a fresh auth link scoped to that specific clicker (via build_roblox_auth_url),
 # so multiple people can safely use the same posted panel/message without colliding.
-class VerifyPanelView(discord.ui.View):
+class VerifyPanelView(discord.ui.LayoutView):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Verify", style=discord.ButtonStyle.success, custom_id="verify_panel:verify")
-    async def verify_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        container = discord.ui.Container()
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(VERIFY_BANNER_URL)
+        ))
+
+        container.add_item(discord.ui.TextDisplay(
+            f"# {CHECK_EMOJI} Verification"
+        ))
+
+        container.add_item(discord.ui.TextDisplay(VERIFY_PANEL_TEXT))
+
+        row = discord.ui.ActionRow()
+        row.add_item(VerifyButton())
+        container.add_item(row)
+
+        container.add_item(discord.ui.Separator())
+
+        container.add_item(discord.ui.MediaGallery(
+            discord.MediaGalleryItem(VERIFY_FOOTER_URL)
+        ))
+
+        self.add_item(container)
+
+class VerifyButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Verify", style=discord.ButtonStyle.success, custom_id="verify_panel:verify")
+
+    async def callback(self, interaction: discord.Interaction):
         linked = get_linked_account(interaction.user.id)
         if linked and linked["roblox_username"]:
             await interaction.response.send_message(
@@ -441,11 +477,7 @@ async def verify_panel(interaction: discord.Interaction):
         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
         return
 
-    embed = discord.Embed(
-        title=f"{CHECK_EMOJI} Verification",
-        description="Click the button below to link your Roblox account. Once linked, your nickname and roles will update automatically and you'll get a DM confirming it."
-    )
-    await interaction.channel.send(embed=embed, view=VerifyPanelView())
+    await interaction.channel.send(view=VerifyPanelView())
     await interaction.response.send_message(f"Verification panel posted in {interaction.channel.mention}!", ephemeral=True)
 
 # ---------- DASHBOARD (Components V2) ----------
